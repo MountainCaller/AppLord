@@ -144,6 +144,17 @@ footer{color:var(--dim);font-size:11.5px;text-align:center}
 .mgctl #mg-plus{min-width:72px;font-family:var(--display);font-size:24px}
 .mgctl #mg-plus:not(:disabled){border-color:var(--alert);color:var(--alert);animation:blink .5s steps(1) infinite}
 @media (prefers-reduced-motion:reduce){.mgctl #mg-plus:not(:disabled){animation:none}}
+.bhud{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.bhud #b-time{font-family:var(--display);font-size:22px;color:var(--amber);letter-spacing:0}
+.transcript{height:8em;overflow-y:auto;border:1px solid var(--faint);background:var(--bg);padding:8px 10px;font-size:12.5px;display:flex;flex-direction:column;gap:5px}
+.transcript .sp{color:var(--dim);margin-right:6px}
+.transcript div.new{animation:in .35s ease-out}
+.bcard{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.bcard button{min-height:56px;padding:4px;text-transform:none;letter-spacing:0;font-size:12px;line-height:1.15;overflow-wrap:anywhere;hyphens:auto}
+.bcard button.on{background:var(--amber);color:var(--ink);border-color:var(--amber)}
+.bcard button.miss{border-color:var(--alert);color:var(--alert)}
+.bcard button.win{outline:2px solid var(--alert);outline-offset:-4px}
+.bcard button:disabled.on{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -371,6 +382,7 @@ function travel(i){
   if(Math.random()<.28) q.push(marketEvent);
   if(Math.random()<.36) q.push(miscEvent);
   if(S.debt>8000&&S.day>8&&Math.random()<.22) q.push(brendaEvent);
+  if(S.day>2&&Math.random()<.09) q.push(bingoEvent);
   if(Math.random()<.06+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
   const o=Math.random();
   if(o<.07&&!S.raci) q.push(raciOffer); else if(o<.14) q.push(quotaOffer);
@@ -409,12 +421,109 @@ function submitGate(){
   if(g.code==='REQ') meetingIntro();
 }
 
+
+/* ---------- minigame: All-Hands Bullsh*t Bingo ---------- */
+const BUZZ=['Synergy','Leverage','Circle back','Move the needle','Deep dive','Low-hanging fruit','Paradigm shift','Bandwidth','North Star','Boil the ocean','Best-in-class','Value-add','Pivot','Ecosystem','Thought leadership','Disruption','Alignment','Learnings','Double-click','Headwinds','Right-size','Empowerment','Holistic','Mission-critical','AI-first','Journey','Unlock value','Game-changer','Customer-obsessed','Shift left','Win-win','One team'];
+const ALLHANDS=[
+  "Team, this quarter is all about {0}. And frankly, {1}.",
+  "When I think about {0}, I think about {1}. Let that sink in.",
+  "Let's be honest: {0} is table stakes. {1} is the future.",
+  "I was with the board last week and they kept saying {0}. I said: {1}.",
+  "Our customers don't want features. They want {0}.",
+  "Q3 had real {0}, but we answered with {1}.",
+  "I'll be brief. Three words: {0}, {1}, and, um, {2}.",
+  "Huge shout-out to Treasury Ops. That's what {0} looks like.",
+  "Is this {0}? Absolutely. Is it {1}? Let's take that offline.",
+  "If you remember one thing today, remember {0}.",
+  "We're on a {0}, and the destination is {1}.",
+  "Gartner calls it {0}. We call it {1}.",
+  "Any questions? ... Great, no questions. Moving on to {0}.",
+  "The new reorg is built around {0}. And {1}. Mostly {0}.",
+  "I don't want to {0} here, but this is pure {1}.",
+  "Sorry, can someone mute? Thank you. So: {0}.",
+  "Our North Star hasn't changed. It's {0}. It was always {0}.",
+];
+const SPEAKERS=['CEO','CEO','CEO','CFO','Chief Transformation Officer'];
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function bingoEvent(next){
+  showModal({title:'MANDATORY ALL-HANDS',
+    body:`<p>Your calendar just exploded. The CEO is live from a stage in front of a giant screen that says <b>TRANSFORMATION</b>. 4,000 people are on the call. You came prepared with a bingo card.</p>
+      <p class="dim">Tap a buzzword on your card only after you see it in the live transcript. Get four in a row, column or diagonal before the call ends in 30 seconds. Tap a word that hasn't been said yet and everyone knows you weren't listening.</p>`,
+    buttons:[{label:'Join (camera off, obviously)',primary:1,fn:()=>runBingo(next)}]});
+}
+function runBingo(next){
+  const LEN=30,card=shuffle(BUZZ).slice(0,16),said=new Set(),marked=new Set();
+  let t=0,nextAt=.8,wrong=0,over=false,timer=0;
+  const box=$('#mbox');
+  box.innerHTML=`<h3>ALL-HANDS · BULLSH*T BINGO</h3>
+    <div class="bhud"><span class="label">● Live transcript</span><span id="b-time">0:30</span></div>
+    <div class="transcript" id="b-tr" aria-live="polite"><div class="dim">Waiting for the CEO to find the unmute button…</div></div>
+    <div class="bcard" id="b-card">${card.map((w,i)=>`<button type="button" data-b="${i}">${esc(w)}</button>`).join('')}</div>
+    <p class="dim" id="b-msg">Marked 0 of 16.</p>`;
+  const tr=$('#b-tr'),msgEl=$('#b-msg'),btns=[...box.querySelectorAll('[data-b]')];
+  const LINES=[[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15],[0,4,8,12],[1,5,9,13],[2,6,10,14],[3,7,11,15],[0,5,10,15],[3,6,9,12]];
+  function say(){
+    const tpl=pick(ALLHANDS),n=new Set(tpl.match(/\{\d\}/g)).size,words=[];
+    for(let k=0;k<n;k++){
+      const unsaid=card.filter(c=>!said.has(c)&&!words.includes(c));
+      words.push(unsaid.length&&Math.random()<.3?pick(unsaid):pick(BUZZ.filter(b=>!words.includes(b))));
+    }
+    words.forEach(w=>said.add(w));
+    const text=tpl.replace(/\{(\d)\}/g,(_,i)=>words[+i].toLowerCase());
+    if(tr.firstElementChild&&tr.firstElementChild.classList.contains('dim')&&tr.children.length===1)tr.innerHTML='';
+    const d=document.createElement('div');d.className='new';
+    d.innerHTML=`<span class="sp">${esc(pick(SPEAKERS))}:</span>${esc(text)}`;
+    tr.appendChild(d);while(tr.children.length>12)tr.removeChild(tr.firstElementChild);
+    tr.scrollTop=tr.scrollHeight;
+  }
+  btns.forEach(b=>b.addEventListener('click',()=>{
+    if(over)return;const i=+b.dataset.b,w=card[i];
+    if(marked.has(i))return;
+    if(said.has(w)){
+      marked.add(i);b.classList.remove('miss');b.classList.add('on');b.setAttribute('aria-pressed','true');
+      msgEl.textContent=`Marked ${marked.size} of 16.`;
+      const hit=LINES.find(L=>L.every(j=>marked.has(j)));
+      if(hit){hit.forEach(j=>btns[j].classList.add('win'));finish(true);}
+    } else {
+      wrong++;b.classList.add('miss');
+      msgEl.textContent=`"${w}" hasn't been said yet. The CEO pauses: "Is someone typing?" (${wrong} slip${wrong>1?'s':''})`;
+    }
+  }));
+  function tick(){
+    t+=.1;
+    $('#b-time').textContent=`0:${String(Math.max(0,Math.ceil(LEN-t))).padStart(2,'0')}`;
+    if(t>=nextAt){say();nextAt+=2.4;}
+    if(t>=LEN)finish(false);
+  }
+  function finish(win){
+    if(over)return;over=true;clearInterval(timer);btns.forEach(b=>b.disabled=true);
+    setTimeout(()=>bingoResult(win,marked.size,wrong,next),1000);
+  }
+  timer=setInterval(tick,100);
+}
+function bingoResult(win,count,wrong,next){
+  const slip=wrong*2;
+  let title,body,apply;
+  if(win){
+    title='BINGO!';
+    body=`<p>You type <b>BINGO</b> into the 4,000-person chat. Three VPs reply "+1". A director asks what it means. You are a legend in the Slack channel your manager doesn't know about.</p>
+      <p>A sympathetic SVP slips you discretionary budget: <b>+$2,000</b>. Sanity +10.${slip?` Your ${wrong} slip${wrong>1?'s':''} cost ${slip} sanity.`:''}</p>`;
+    apply=()=>{S.cash+=2000;S.sanity=Math.min(100,S.sanity+10);log(`BINGO at the all-hands. +$2,000 and sanity +10.${slip?` Slips: -${slip} sanity.`:''}`,'win');if(slip)damage(slip);};
+  } else {
+    title='NO BINGO';
+    body=`<p>The CEO says "let's make it a great quarter, team" and drops off mid-sentence. You marked ${count} of 16. The recording will be posted to a SharePoint site nobody can find.</p>
+      <p>Sanity -${5+slip}.${slip?` That includes ${slip} for tapping words before anyone said them.`:''}</p>`;
+    apply=()=>{log(`Sat through an all-hands with no bingo. Sanity -${5+slip}.`,'alert');damage(5+slip);};
+  }
+  showModal({title,alert:!win,body,buttons:[{label:'Leave the call',primary:1,fn(){closeModal();apply();next();}}]});
+}
+
 /* ---------- minigame: the Requirements Walkthrough (a tribute to Desert Bus) ---------- */
 function meetingIntro(){
   const box=$('#mbox');
   box.innerHTML=`<h3>REQUIREMENTS WALKTHROUGH</h3>
     <p>Sign-off isn't enough. The BAs want to read all 412 pages out loud on a call. Camera on. Your focus drifts toward sleep the entire time.</p>
-    <p class="dim">Hold <b>Nod along</b> (or ← / Space) to steer left. Let go and you drift right into a nap. Steer too far left and you unmute with a "quick question". Stay on the agenda for 60 seconds. When they ask for objections, tap <b>+1</b>.</p>
+    <p class="dim">Hold <b>Nod along</b> (or ← / Space) to steer left. Let go and you drift right into a nap. Steer too far left and you unmute with a "quick question". Stay on the agenda for 30 seconds. When they ask for objections, tap <b>+1</b>.</p>
     <div class="btnrow"><button type="button" class="primary" id="mg-go">Join the call</button></div>`;
   $('#modal').hidden=false;
   $('#mg-go').onclick=runMeeting;$('#mg-go').focus();
@@ -428,10 +537,10 @@ function runMeeting(){
   const cv=$('#mg-c'),ctx=cv.getContext('2d'),steer=$('#mg-steer'),plusBtn=$('#mg-plus'),msgEl=$('#mg-msg');
   const css=getComputedStyle(document.documentElement),col=n=>css.getPropertyValue(n).trim();
   const C={amber:col('--amber'),dim:col('--dim'),faint:col('--faint'),alert:col('--alert'),screen:col('--screen'),bg:col('--bg')};
-  const LEN=60,stops=[17,34,49];
+  const LEN=30,stops=[9,18,25];
   let x=0,v=0,t=-3,dist=0,last=null,hold=false,plus=0,prompt=null,res=null,raf=0,crashAt=0;
   const lines=["The BA shares the wrong screen. It's their email.","\"Let's take a step back and look at the why.\"","Someone's dog has joined the call.","\"Can everyone see my screen? No? How about now?\"","\"I'll just read this section verbatim.\"","\"Sorry, I was on mute.\"","Page 14 is a picture of page 13.","\"Let's park that in the parking lot.\""];
-  let nextLine=6;
+  let nextLine=5;
   const msg=s=>{msgEl.textContent=s;};
   const setHold=h=>{hold=h;steer.classList.toggle('on',h);};
   const kd=e=>{if(['ArrowLeft','a','A',' '].includes(e.key)){e.preventDefault();setHold(true);}
@@ -497,7 +606,7 @@ function runMeeting(){
         x+=v*dt*.9;dist+=dt;
         if(!prompt&&stops.length&&t>=stops[0]){stops.shift();prompt={until:t+2.6};plusBtn.disabled=false;}
         if(prompt&&t>prompt.until){prompt=null;plusBtn.disabled=true;msg('Silence. "Great, silence is consent."');}
-        if(t>=nextLine&&!prompt){msg(pick(lines));nextLine+=ri(6,9);}
+        if(t>=nextLine&&!prompt){msg(pick(lines));nextLine+=ri(4,6);}
         if(x>1)finish('sleep');else if(x<-1)finish('eager');else if(t>=LEN)finish('win');
       }
     }
@@ -516,7 +625,7 @@ function meetingResult(kind,plus,slide){
   let title,body,apply;
   if(kind==='win'){
     title='YOU SURVIVED';
-    body=`<p>Sixty seconds, ${slide} slides, eyes open. You earn 1 point. Nobody knows what points are for.</p>
+    body=`<p>Thirty seconds, ${slide} slides, eyes open. You earn 1 point. Nobody knows what points are for.</p>
       <p>The BA lead nominates you for a Spot Award: <b>+$1,000</b>.${plus?` Your ${plus} enthusiastic +1${plus>1?'s':''} earn${plus>1?'':'s'} another <b>${fmt(bonus)}</b>.`:''} Sanity +10.</p>
       <p class="dim">Only ${412-slide} slides left. They've scheduled part two for Thursday.</p>`;
     apply=()=>{S.cash+=1000+bonus;S.sanity=Math.min(100,S.sanity+10);
@@ -638,7 +747,8 @@ function helpModal(){
     ${GATES.map(g=>`<tr><td>${g.code}</td><td>${esc(LOCS[locIdx(g.loc)].name)}${g.cabOnly?' (Tuesdays: days 2, 7, 12, 17, 22, 27)':''}</td><td>${Object.entries(g.need).map(([k,v])=>v+' '+esc(item(k).name)).join(', ')}</td><td>${g.reward?fmt(g.reward):'Glory'}</td></tr>`).join('')}
     </table></div>
     <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
-    <p>Pass REQ and you'll be dragged into a 60-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
+    <p>Pass REQ and you'll be dragged into a 30-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
+    <p>Watch out for surprise all-hands calls. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
     <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells extra storage.</p>
     <p class="dim">Desktop keys: T travel · G submit gate · P PMO · ? help</p>
     <p class="label">Hall of fame (this device)</p>${scoresHtml()}</div>`,
@@ -706,7 +816,7 @@ function save(){store('applord-save',S);}
 
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey) return;
-  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUICK QUESTION/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
+  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUICK QUESTION|ALL-HANDS|BINGO/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
   if(e.target.tagName==='INPUT') return;
   if(e.key==='?'){helpModal();return;}
   if(S.over) return;
