@@ -333,8 +333,8 @@ function quotaOffer(next){
   if(S.cap>=CAP_MAX) return next();
   const add=ri(2,4)*10, price=ri(12,25)*100;
   showModal({title:'IT HAS AN OFFER',
-    body:`<p>A desktop-support tech can bump your SharePoint quota by <b>${add} slots</b> for <b>${fmt(price)}</b>. Cash only. Don't ask how.</p><p class="dim">Laptop: ${used()}/${S.cap} used.</p>`,
-    buttons:[{label:'Deal',primary:1,disabled:S.cash<price,fn(){S.cash-=price;S.cap=Math.min(CAP_MAX,S.cap+add);log(`Quota bumped. You can now hoard ${S.cap} items.`);closeModal();next();}},
+    body:`<p>A guy from the AI Center of Excellence can bump your AI token quota by <b>${add}k tokens</b> for <b>${fmt(price)}</b>. He's "piloting" it. Do not tell Procurement.</p><p class="dim">Your assistant needs 1k tokens to keep track of each item. Tokens: ${used()}k/${S.cap}k used.</p>`,
+    buttons:[{label:'Deal',primary:1,disabled:S.cash<price,fn(){S.cash-=price;S.cap=Math.min(CAP_MAX,S.cap+add);log(`Token quota bumped to ${S.cap}k. Your AI assistant can now keep track of ${S.cap} items without hallucinating.`);closeModal();next();}},
              {label:'Pass',fn(){closeModal();next();}}]});
 }
 
@@ -391,7 +391,7 @@ function travel(i){
 
 function buyPrompt(id){
   const it=item(id),p=S.prices[id],room=S.cap-used(),afford=Math.floor(S.cash/p),max=Math.min(room,afford);
-  if(max<=0){log(room<=0?"Your laptop is full. IT says to 'just use OneDrive'. You do not trust OneDrive.":`You can't afford a single ${it.name}. Brenda at the PMO is always happy to help. Always.`,'alert');render();return;}
+  if(max<=0){log(room<=0?"You're out of AI tokens. Your assistant says \"I can't help with that\" and recommends a two-hour prompt-engineering course.":`You can't afford a single ${it.name}. Brenda at the PMO is always happy to help. Always.`,'alert');render();return;}
   qtyModal(`BUY ${it.name.toUpperCase()}`,`${fmt(p)} each. You can afford ${afford}, and have room for ${room}.`,max,q=>{
     S.cash-=q*p;S.inv[id]+=q;log(`Bought ${q} ${it.name} for ${fmt(q*p)}.`);});
 }
@@ -669,10 +669,10 @@ function latte(){
 }
 function usb(){
   const price=1800;
-  if(S.cap>=CAP_MAX){log("Your laptop can't hold any more. It's already making a noise like a leaf blower.",'alert');return render();}
-  if(S.cash<price){log(`A 'certified' USB drive costs ${fmt(price)}. Procurement says that's a fair price. It is not.`,'alert');return render();}
+  if(S.cap>=CAP_MAX){log("Finance capped your token quota after someone's agent burned $2M summarizing the cafeteria menu.",'alert');return render();}
+  if(S.cash<price){log(`A token top-up costs ${fmt(price)}. Procurement says that's a fair price. It is not.`,'alert');return render();}
   S.cash-=price;S.cap=Math.min(CAP_MAX,S.cap+30);
-  log(`You requisition an encrypted USB drive for ${fmt(price)}. Capacity +30 (now ${S.cap}).`);render();save();
+  log(`You buy a token top-up at the GPU cage for ${fmt(price)}. Quota +30k (now ${S.cap}k). The servers sigh audibly.`);render();save();
 }
 
 /* ---------- end ---------- */
@@ -749,7 +749,7 @@ function helpModal(){
     <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
     <p>Pass REQ and you'll be dragged into a 30-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
     <p>Watch out for surprise all-hands calls. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
-    <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells extra storage.</p>
+    <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells AI token top-ups. Your AI assistant spends 1k tokens tracking each item you carry, so your token quota caps your stash.</p>
     <p class="dim">Desktop keys: T travel · G submit gate · P PMO · ? help</p>
     <p class="label">Hall of fame (this device)</p>${scoresHtml()}</div>`,
     buttons:[{label:'Got it',primary:1,fn(){closeModal();}},{label:'Start over',fn(){closeModal();newGame();render();save();}}]});
@@ -763,7 +763,7 @@ function render(){
     <div class="stat"><span class="label">Day</span><span class="v ${S.day>=26?'bad':''}">${S.day}/${MAXDAY}</span></div>
     <div class="stat"><span class="label">Budget</span><span class="v">${fmt(S.cash)}</span></div>
     <div class="stat"><span class="label">PMO debt</span><span class="v ${S.debt>10000?'bad':''}">${fmt(S.debt)}</span></div>
-    <div class="stat"><span class="label">Laptop</span><span class="v">${used()}/${S.cap}</span></div>
+    <div class="stat"><span class="label">AI tokens</span><span class="v">${used()}k/${S.cap}k</span></div>
     <div class="stat wide"><span class="label">Location</span><span class="v">${esc(L.name)}</span></div>
     <div class="stat"><span class="label">Sanity ${S.sanity}</span><span class="bar" aria-label="Sanity ${S.sanity} of 100">${'█'.repeat(bar)}<span class="off">${'░'.repeat(10-bar)}</span></span></div>
     <div class="stat"><span class="label">RACI</span><span class="v">${S.raci?'ARMED':'NONE'}</span></div>`;
@@ -800,7 +800,7 @@ function render(){
   acts.push({k:'T',label:'Travel',fn:travelModal,primary:1});
   if(S.gate<GATES.length) acts.push({k:'G',label:`Submit ${GATES[S.gate].code}`,fn:submitGate});
   if(L.id==='cube'){acts.push({k:'P',label:'Brenda (PMO)',fn:pmo});acts.push({k:'L',label:'Latte $150',fn:latte});}
-  if(L.id==='dc') acts.push({k:'U',label:'USB drive $1,800',fn:usb});
+  if(L.id==='dc') acts.push({k:'U',label:'Tokens +30k $1,800',fn:usb});
   const a=$('#actions');
   a.innerHTML=acts.map((x,i)=>`<button type="button" data-a="${i}" class="${x.primary?'primary':''}" ${dis?'disabled':''}><kbd>${x.k}</kbd>${esc(x.label)}</button>`).join('')+
     (S.over?`<button type="button" class="primary" id="b-new">New career</button>`:'')+
