@@ -149,8 +149,8 @@ footer{color:var(--dim);font-size:11.5px;text-align:center}
 .transcript{height:8em;overflow-y:auto;border:1px solid var(--faint);background:var(--bg);padding:8px 10px;font-size:12.5px;display:flex;flex-direction:column;gap:5px}
 .transcript .sp{color:var(--dim);margin-right:6px}
 .transcript div.new{animation:in .35s ease-out}
-.bcard{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
-.bcard button{min-height:56px;padding:4px;text-transform:none;letter-spacing:0;font-size:12px;line-height:1.15;overflow-wrap:anywhere;hyphens:auto}
+.bcard{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.bcard button{min-height:60px;padding:6px;text-transform:none;letter-spacing:0;font-size:13.5px;line-height:1.15;overflow-wrap:anywhere;hyphens:auto}
 .bcard button.on{background:var(--amber);color:var(--ink);border-color:var(--amber)}
 .bcard button.miss{border-color:var(--alert);color:var(--alert)}
 .bcard button.win{outline:2px solid var(--alert);outline-offset:-4px}
@@ -448,25 +448,25 @@ function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor
 function bingoEvent(next){
   showModal({title:'MANDATORY ALL-HANDS',
     body:`<p>Your calendar just exploded. The CEO is live from a stage in front of a giant screen that says <b>TRANSFORMATION</b>. 4,000 people are on the call. You came prepared with a bingo card.</p>
-      <p class="dim">Tap a buzzword on your card only after you see it in the live transcript. Get four in a row, column or diagonal before the call ends in 30 seconds. Tap a word that hasn't been said yet and everyone knows you weren't listening.</p>`,
+      <p class="dim">Tap a buzzword on your card only after you see it in the live transcript. Get three in a row, column or diagonal before the call ends in 30 seconds. Tap a word that hasn't been said yet and everyone knows you weren't listening.</p>`,
     buttons:[{label:'Join (camera off, obviously)',primary:1,fn:()=>runBingo(next)}]});
 }
 function runBingo(next){
-  const LEN=30,card=shuffle(BUZZ).slice(0,16),said=new Set(),marked=new Set();
+  const LEN=30,card=shuffle(BUZZ).slice(0,9),said=new Set(),marked=new Set();
   let t=0,nextAt=.8,wrong=0,over=false,timer=0;
   const box=$('#mbox');
   box.innerHTML=`<h3>ALL-HANDS · BULLSH*T BINGO</h3>
     <div class="bhud"><span class="label">● Live transcript</span><span id="b-time">0:30</span></div>
     <div class="transcript" id="b-tr" aria-live="polite"><div class="dim">Waiting for the CEO to find the unmute button…</div></div>
     <div class="bcard" id="b-card">${card.map((w,i)=>`<button type="button" data-b="${i}">${esc(w)}</button>`).join('')}</div>
-    <p class="dim" id="b-msg">Marked 0 of 16.</p>`;
+    <p class="dim" id="b-msg">Marked 0 of 9.</p>`;
   const tr=$('#b-tr'),msgEl=$('#b-msg'),btns=[...box.querySelectorAll('[data-b]')];
-  const LINES=[[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15],[0,4,8,12],[1,5,9,13],[2,6,10,14],[3,7,11,15],[0,5,10,15],[3,6,9,12]];
+  const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
   function say(){
     const tpl=pick(ALLHANDS),n=new Set(tpl.match(/\{\d\}/g)).size,words=[];
     for(let k=0;k<n;k++){
       const unsaid=card.filter(c=>!said.has(c)&&!words.includes(c));
-      words.push(unsaid.length&&Math.random()<.3?pick(unsaid):pick(BUZZ.filter(b=>!words.includes(b))));
+      words.push(unsaid.length&&Math.random()<.2?pick(unsaid):pick(BUZZ.filter(b=>!words.includes(b))));
     }
     words.forEach(w=>said.add(w));
     const text=tpl.replace(/\{(\d)\}/g,(_,i)=>words[+i].toLowerCase());
@@ -481,7 +481,7 @@ function runBingo(next){
     if(marked.has(i))return;
     if(said.has(w)){
       marked.add(i);b.classList.remove('miss');b.classList.add('on');b.setAttribute('aria-pressed','true');
-      msgEl.textContent=`Marked ${marked.size} of 16.`;
+      msgEl.textContent=`Marked ${marked.size} of 9.`;
       const hit=LINES.find(L=>L.every(j=>marked.has(j)));
       if(hit){hit.forEach(j=>btns[j].classList.add('win'));finish(true);}
     } else {
@@ -511,7 +511,7 @@ function bingoResult(win,count,wrong,next){
     apply=()=>{S.cash+=2000;S.sanity=Math.min(100,S.sanity+10);log(`BINGO at the all-hands. +$2,000 and sanity +10.${slip?` Slips: -${slip} sanity.`:''}`,'win');if(slip)damage(slip);};
   } else {
     title='NO BINGO';
-    body=`<p>The CEO says "let's make it a great quarter, team" and drops off mid-sentence. You marked ${count} of 16. The recording will be posted to a SharePoint site nobody can find.</p>
+    body=`<p>The CEO says "let's make it a great quarter, team" and drops off mid-sentence. You marked ${count} of 9. The recording will be posted to a SharePoint site nobody can find.</p>
       <p>Sanity -${5+slip}.${slip?` That includes ${slip} for tapping words before anyone said them.`:''}</p>`;
     apply=()=>{log(`Sat through an all-hands with no bingo. Sanity -${5+slip}.`,'alert');damage(5+slip);};
   }
