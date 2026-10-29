@@ -1,9 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AppLord</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=VT323&display=swap">
 <style>
+html{color-scheme:dark}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
 /* Layout: one amber-phosphor CRT monitor — status strip, waterfall pipeline, terminal log, trading floor, command bar. Single deliberate dark look. */
 :root{
   --bg:#0c0804;          /* room behind the monitor */
@@ -128,7 +138,8 @@ footer{color:var(--dim);font-size:11.5px;text-align:center}
 .scores div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted var(--faint)}
 .big{font-family:var(--display);font-size:40px;line-height:1}
 </style>
-
+</head>
+<body>
 <div class="wrap">
   <header class="masthead glow">
     <div class="corp">Consolidated Mutual Trust &amp; Fidelity · 100,412 employees · Est. 1887 · Last modernized 1987</div>
@@ -576,3 +587,5 @@ try{window.claude?.hot?.snapshot?.(()=>({S}));}catch(e){}
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
 </script>
+</body>
+</html>
