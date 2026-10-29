@@ -137,6 +137,13 @@ footer{color:var(--dim);font-size:11.5px;text-align:center}
 .scores{display:flex;flex-direction:column;gap:2px;font-variant-numeric:tabular-nums;font-size:12.5px}
 .scores div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted var(--faint)}
 .big{font-family:var(--display);font-size:40px;line-height:1}
+.mg{display:block;width:100%;height:270px;max-width:100%;border:1px solid var(--faint);background:var(--bg);touch-action:none}
+.mgctl{display:flex;gap:8px}
+.mgctl .steer{flex:1;min-height:58px;font-size:15px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
+.mgctl .steer.on{background:var(--amber);color:var(--ink);border-color:var(--amber)}
+.mgctl #mg-plus{min-width:72px;font-family:var(--display);font-size:24px}
+.mgctl #mg-plus:not(:disabled){border-color:var(--alert);color:var(--alert);animation:blink .5s steps(1) infinite}
+@media (prefers-reduced-motion:reduce){.mgctl #mg-plus:not(:disabled){animation:none}}
 </style>
 </head>
 <body>
@@ -399,6 +406,134 @@ function submitGate(){
   S.gate++;S.cash+=g.reward;log(g.pass,'win');
   if(S.gate===GATES.length){endGame('win');return;}
   render();save();
+  if(g.code==='REQ') meetingIntro();
+}
+
+/* ---------- minigame: the Requirements Walkthrough (a tribute to Desert Bus) ---------- */
+function meetingIntro(){
+  const box=$('#mbox');
+  box.innerHTML=`<h3>REQUIREMENTS WALKTHROUGH</h3>
+    <p>Sign-off isn't enough. The BAs want to read all 412 pages out loud on a call. Camera on. Your focus drifts toward sleep the entire time.</p>
+    <p class="dim">Hold <b>Nod along</b> (or ← / Space) to steer left. Let go and you drift right into a nap. Steer too far left and you unmute with a "quick question". Stay on the agenda for 60 seconds. When they ask for objections, tap <b>+1</b>.</p>
+    <div class="btnrow"><button type="button" class="primary" id="mg-go">Join the call</button></div>`;
+  $('#modal').hidden=false;
+  $('#mg-go').onclick=runMeeting;$('#mg-go').focus();
+}
+function runMeeting(){
+  const box=$('#mbox');
+  box.innerHTML=`<h3>REQUIREMENTS WALKTHROUGH</h3>
+    <canvas class="mg" id="mg-c" aria-label="Your focus, drawn as a bus on a straight road. Keep it between the edges."></canvas>
+    <div class="mgctl"><button type="button" class="primary steer" id="mg-steer">◀ Nod along</button><button type="button" id="mg-plus" disabled aria-label="Plus one">+1</button></div>
+    <p class="dim" id="mg-msg" aria-live="polite">Connecting to audio…</p>`;
+  const cv=$('#mg-c'),ctx=cv.getContext('2d'),steer=$('#mg-steer'),plusBtn=$('#mg-plus'),msgEl=$('#mg-msg');
+  const css=getComputedStyle(document.documentElement),col=n=>css.getPropertyValue(n).trim();
+  const C={amber:col('--amber'),dim:col('--dim'),faint:col('--faint'),alert:col('--alert'),screen:col('--screen'),bg:col('--bg')};
+  const LEN=60,stops=[17,34,49];
+  let x=0,v=0,t=-3,dist=0,last=null,hold=false,plus=0,prompt=null,res=null,raf=0,crashAt=0;
+  const lines=["The BA shares the wrong screen. It's their email.","\"Let's take a step back and look at the why.\"","Someone's dog has joined the call.","\"Can everyone see my screen? No? How about now?\"","\"I'll just read this section verbatim.\"","\"Sorry, I was on mute.\"","Page 14 is a picture of page 13.","\"Let's park that in the parking lot.\""];
+  let nextLine=6;
+  const msg=s=>{msgEl.textContent=s;};
+  const setHold=h=>{hold=h;steer.classList.toggle('on',h);};
+  const kd=e=>{if(['ArrowLeft','a','A',' '].includes(e.key)){e.preventDefault();setHold(true);}
+    if((e.key==='ArrowUp'||e.key==='+'||e.key==='=')&&!plusBtn.disabled){e.preventDefault();doPlus();}};
+  const ku=e=>{if(['ArrowLeft','a','A',' '].includes(e.key)){e.preventDefault();setHold(false);}};
+  const pd=e=>{e.preventDefault();setHold(true);try{e.currentTarget.setPointerCapture(e.pointerId);}catch(_){}};
+  const pu=()=>setHold(false);
+  [steer,cv].forEach(el=>{el.addEventListener('pointerdown',pd);el.addEventListener('pointerup',pu);el.addEventListener('pointercancel',pu);el.addEventListener('lostpointercapture',pu);el.addEventListener('contextmenu',e=>e.preventDefault());});
+  document.addEventListener('keydown',kd);document.addEventListener('keyup',ku);
+  function doPlus(){if(!prompt)return;plus++;prompt=null;plusBtn.disabled=true;msg(`"+1 from you, noted." (${plus} so far)`);}
+  plusBtn.onclick=doPlus;
+  steer.focus();
+
+  function size(){const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
+    if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
+    ctx.setTransform(dpr,0,0,dpr,0,0);return [w,h];}
+
+  function draw(){
+    const [W,H]=size(),cx=W/2,rw=Math.min(W*.27,115),scroll=dist*140;
+    ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
+    ctx.fillStyle=C.faint;
+    for(let gy=-1;gy<H/22+2;gy++){for(let gx=0;gx<W/24+1;gx++){
+      const px=gx*24+(gy%2?12:0)+4,py=((gy*22+scroll)%(H+44))-22;
+      if(Math.abs(px-cx)<rw+8)continue;ctx.fillRect(px,py,2,2);}}
+    ctx.font='22px VT323, "Courier New", monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=x<-.6?C.alert:C.dim;ctx.fillText('?!',(cx-rw)/2,H*.55);
+    ctx.fillStyle=x>.6?C.alert:C.dim;ctx.fillText('Zzz',cx+rw+(W-cx-rw)/2,H*.55);
+    ctx.font='12px "IBM Plex Mono", monospace';
+    ctx.fillStyle=C.dim;ctx.fillText('UNMUTE',(cx-rw)/2,H*.55+20);ctx.fillText('NAP',cx+rw+(W-cx-rw)/2,H*.55+20);
+    ctx.fillStyle=C.screen;ctx.fillRect(cx-rw,0,rw*2,H);
+    ctx.lineWidth=2;
+    ctx.strokeStyle=x<-.7?C.alert:C.dim;ctx.beginPath();ctx.moveTo(cx-rw,0);ctx.lineTo(cx-rw,H);ctx.stroke();
+    ctx.strokeStyle=x>.7?C.alert:C.dim;ctx.beginPath();ctx.moveTo(cx+rw,0);ctx.lineTo(cx+rw,H);ctx.stroke();
+    ctx.fillStyle=C.faint;for(let y=(scroll%44)-44;y<H;y+=44)ctx.fillRect(cx-1.5,y,3,22);
+    const bx=cx+Math.max(-1.3,Math.min(1.3,x))*rw,by=H*.7;
+    ctx.save();ctx.translate(bx,by);ctx.rotate(Math.max(-.35,Math.min(.35,v*.14)));
+    ctx.fillStyle=C.screen;ctx.strokeStyle=res&&res!=='win'?C.alert:C.amber;ctx.lineWidth=2;
+    ctx.fillRect(-13,-26,26,52);ctx.strokeRect(-13,-26,26,52);
+    ctx.fillStyle=res&&res!=='win'?C.alert:C.amber;ctx.fillRect(-9,-21,18,7);
+    for(let i=0;i<4;i++){ctx.fillRect(-9,-9+i*8,4,4);ctx.fillRect(5,-9+i*8,4,4);}
+    ctx.restore();
+    ctx.textAlign='left';ctx.textBaseline='top';ctx.font='20px VT323, "Courier New", monospace';ctx.fillStyle=C.amber;
+    ctx.fillText(`SLIDE ${Math.floor(dist*.78)+1} / 412`,10,8);
+    ctx.textAlign='right';const left=Math.max(0,Math.ceil(LEN-Math.max(0,t)));
+    ctx.fillText(`0:${String(left).padStart(2,'0')}`,W-10,8);
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    if(t<0){ctx.font='72px VT323, "Courier New", monospace';ctx.fillText(String(Math.ceil(-t)),cx,H*.38);}
+    if(prompt){ctx.fillStyle=C.screen;ctx.fillRect(cx-110,H*.22-18,220,36);ctx.strokeStyle=C.alert;ctx.strokeRect(cx-110,H*.22-18,220,36);
+      ctx.fillStyle=C.alert;ctx.font='22px VT323, "Courier New", monospace';ctx.fillText('ANY OBJECTIONS? TAP +1',cx,H*.22);}
+    if(res){ctx.fillStyle=res==='win'?C.amber:C.alert;ctx.font='40px VT323, "Courier New", monospace';
+      ctx.fillText(res==='win'?'MEETING ENDED':res==='sleep'?'ZZZZZZZ…':'"QUICK QUESTION…"',cx,H*.38);}
+  }
+
+  function frame(ts){
+    if(last==null)last=ts;const dt=Math.min(.05,(ts-last)/1000);last=ts;
+    if(!res){
+      t+=dt;
+      if(t>=0){
+        if(msgEl.textContent.startsWith('Connecting'))msg('"Okay, let\'s get started. Page one, Purpose."');
+        const p=Math.min(1,t/LEN);
+        const drift=.55+.6*p+(Math.sin(t*1.7)+Math.sin(t*.63))*.2;
+        v+=(drift-(hold?2.3:0))*dt;v*=Math.exp(-1.1*dt);v=Math.max(-1.6,Math.min(1.6,v));
+        x+=v*dt*.9;dist+=dt;
+        if(!prompt&&stops.length&&t>=stops[0]){stops.shift();prompt={until:t+2.6};plusBtn.disabled=false;}
+        if(prompt&&t>prompt.until){prompt=null;plusBtn.disabled=true;msg('Silence. "Great, silence is consent."');}
+        if(t>=nextLine&&!prompt){msg(pick(lines));nextLine+=ri(6,9);}
+        if(x>1)finish('sleep');else if(x<-1)finish('eager');else if(t>=LEN)finish('win');
+      }
+    }
+    draw();
+    if(!res||ts-crashAt<1200)raf=requestAnimationFrame(frame);
+  }
+  function finish(kind){
+    res=kind;crashAt=last;setHold(false);prompt=null;plusBtn.disabled=true;
+    document.removeEventListener('keydown',kd);document.removeEventListener('keyup',ku);
+    setTimeout(()=>meetingResult(kind,plus,Math.floor(dist*.78)+1),1200);
+  }
+  raf=requestAnimationFrame(frame);
+}
+function meetingResult(kind,plus,slide){
+  const bonus=plus*250;
+  let title,body,apply;
+  if(kind==='win'){
+    title='YOU SURVIVED';
+    body=`<p>Sixty seconds, ${slide} slides, eyes open. You earn 1 point. Nobody knows what points are for.</p>
+      <p>The BA lead nominates you for a Spot Award: <b>+$1,000</b>.${plus?` Your ${plus} enthusiastic +1${plus>1?'s':''} earn${plus>1?'':'s'} another <b>${fmt(bonus)}</b>.`:''} Sanity +10.</p>
+      <p class="dim">Only ${412-slide} slides left. They've scheduled part two for Thursday.</p>`;
+    apply=()=>{S.cash+=1000+bonus;S.sanity=Math.min(100,S.sanity+10);
+      log(`You stayed awake through the requirements walkthrough. Spot Award +$1,000${plus?`, +1 bonus ${fmt(bonus)}`:''}. Sanity +10.`);};
+  } else if(kind==='sleep'){
+    const fine=Math.min(S.cash,1000);
+    title='YOU FELL ASLEEP';
+    body=`<p>You nodded off on slide ${slide}. Your mic was open. The whole call heard you snore.</p>
+      <p>While you slept you were volunteered for 9 action items. You buy the team coffee to apologize: <b>-${fmt(fine)}</b>.${plus?` Your ${plus} +1${plus>1?'s':''} earlier still count: <b>+${fmt(bonus)}</b>.`:''} Sanity -15.</p>`;
+    apply=()=>{S.cash+=bonus-fine;log(`You snored through the requirements walkthrough on an open mic. -${fmt(fine)} in apology coffee, 9 action items, sanity -15.`,'alert');damage(15);};
+  } else {
+    title='"QUICK QUESTION"';
+    body=`<p>You got overcaffeinated and unmuted on slide ${slide}: "Quick question, sorry if this was already covered."</p>
+      <p>It was covered. Twice. The meeting is extended by 30 minutes and everyone knows it's your fault.${plus?` Your +1s still earn <b>+${fmt(bonus)}</b>.`:''} Sanity -12.</p>`;
+    apply=()=>{S.cash+=bonus;log('You asked a "quick question" in the requirements walkthrough. Meeting extended 30 minutes. Sanity -12.','alert');damage(12);};
+  }
+  showModal({title,alert:kind!=='win',body,buttons:[{label:'Back to work',primary:1,fn(){closeModal();apply();if(!S.over){render();save();}}}]});
 }
 
 function pmo(){
@@ -503,6 +638,7 @@ function helpModal(){
     ${GATES.map(g=>`<tr><td>${g.code}</td><td>${esc(LOCS[locIdx(g.loc)].name)}${g.cabOnly?' (Tuesdays: days 2, 7, 12, 17, 22, 27)':''}</td><td>${Object.entries(g.need).map(([k,v])=>v+' '+esc(item(k).name)).join(', ')}</td><td>${g.reward?fmt(g.reward):'Glory'}</td></tr>`).join('')}
     </table></div>
     <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
+    <p>Pass REQ and you'll be dragged into a 60-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
     <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells extra storage.</p>
     <p class="dim">Desktop keys: T travel · G submit gate · P PMO · ? help</p>
     <p class="label">Hall of fame (this device)</p>${scoresHtml()}</div>`,
@@ -570,7 +706,7 @@ function save(){store('applord-save',S);}
 
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey) return;
-  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
+  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUICK QUESTION/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
   if(e.target.tagName==='INPUT') return;
   if(e.key==='?'){helpModal();return;}
   if(S.over) return;
