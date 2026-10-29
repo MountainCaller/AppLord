@@ -466,7 +466,7 @@ function runBingo(next){
     const tpl=pick(ALLHANDS),n=new Set(tpl.match(/\{\d\}/g)).size,words=[];
     for(let k=0;k<n;k++){
       const unsaid=card.filter(c=>!said.has(c)&&!words.includes(c));
-      words.push(unsaid.length&&Math.random()<.2?pick(unsaid):pick(BUZZ.filter(b=>!words.includes(b))));
+      words.push(unsaid.length&&Math.random()<.25?pick(unsaid):pick(BUZZ.filter(b=>!words.includes(b))));
     }
     words.forEach(w=>said.add(w));
     const text=tpl.replace(/\{(\d)\}/g,(_,i)=>words[+i].toLowerCase());
@@ -492,7 +492,7 @@ function runBingo(next){
   function tick(){
     t+=.1;
     $('#b-time').textContent=`0:${String(Math.max(0,Math.ceil(LEN-t))).padStart(2,'0')}`;
-    if(t>=nextAt){say();nextAt+=2.4;}
+    if(t>=nextAt){say();nextAt+=3.2;}
     if(t>=LEN)finish(false);
   }
   function finish(win){
