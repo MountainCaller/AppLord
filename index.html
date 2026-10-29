@@ -1,0 +1,578 @@
+<title>AppLord</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=VT323&display=swap">
+<style>
+/* Layout: one amber-phosphor CRT monitor — status strip, waterfall pipeline, terminal log, trading floor, command bar. Single deliberate dark look. */
+:root{
+  --bg:#0c0804;          /* room behind the monitor */
+  --screen:#150e06;      /* phosphor glass */
+  --amber:#ffb22e;       /* lit phosphor */
+  --dim:#a5731f;         /* half-lit */
+  --faint:#3b2a12;       /* rules, empty bars */
+  --alert:#ff6a3d;       /* audit red-orange */
+  --ink:#140c04;         /* text on lit amber */
+  --display:'VT323','Courier New',monospace;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--amber)}
+body{font-family:var(--mono);font-size:14px;line-height:1.5}
+*{box-sizing:border-box}
+.wrap{max-width:780px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+.glow{text-shadow:0 0 6px rgba(255,178,46,.35)}
+.masthead{display:flex;flex-direction:column;gap:2px}
+.corp{font-size:11px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(56px,14vw,96px);line-height:.85;margin:6px 0 0;letter-spacing:.04em;text-shadow:0 0 10px rgba(255,178,46,.55),0 0 2px var(--amber)}
+h1 small{font-size:.3em;color:var(--dim);letter-spacing:.1em;vertical-align:top;margin-left:.4em}
+.sub{color:var(--dim);font-size:13px;max-width:60ch}
+
+.crt{position:relative;background:var(--screen);border:1px solid var(--faint);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:16px;box-shadow:inset 0 0 60px rgba(0,0,0,.6),0 0 0 6px #1d140a,0 0 0 7px var(--faint);overflow:hidden}
+.crt::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.22) 3px);mix-blend-mode:multiply;animation:flick 6s infinite steps(1)}
+@keyframes flick{0%,100%{opacity:1}47%{opacity:.85}48%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.crt::after{animation:none}.cursor{animation:none!important}.line.new{animation:none!important}}
+
+h2{font-family:var(--display);font-weight:400;font-size:24px;line-height:1;margin:0;letter-spacing:.06em;color:var(--amber)}
+.label{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+
+/* Status strip */
+.status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px;border-bottom:1px dashed var(--faint);padding-bottom:14px}
+.stat{display:flex;flex-direction:column;min-width:0}
+.stat .v{font-family:var(--display);font-size:26px;line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .v.bad{color:var(--alert)}
+.stat.wide{grid-column:span 2}
+.bar{font-family:var(--display);font-size:20px;letter-spacing:-1px;color:var(--amber)}
+.bar .off{color:var(--faint)}
+@media (max-width:520px){.status{grid-template-columns:repeat(2,minmax(0,1fr))}.stat .v{font-size:23px}}
+
+/* Pipeline */
+.pipe{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.pipe .cell{font-family:var(--display);font-size:20px;padding:2px 8px;border:1px solid var(--faint);color:var(--dim);line-height:1.1}
+.pipe .cell.done{background:var(--amber);color:var(--ink);border-color:var(--amber)}
+.pipe .cell.now{border-color:var(--amber);color:var(--amber)}
+.pipe .arrow{color:var(--faint);font-family:var(--display);font-size:20px}
+.cursor{display:inline-block;width:.55em;height:.9em;background:var(--amber);vertical-align:-1px;margin-left:3px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+.gate{border:1px solid var(--faint);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.gate .title{font-weight:600}
+.needs{display:flex;flex-wrap:wrap;gap:6px 14px;font-variant-numeric:tabular-nums}
+.need.ok{color:var(--amber)}
+.need.short{color:var(--dim)}
+.need.ok::before{content:"[x] "}
+.need.short::before{content:"[ ] "}
+.gate .note{color:var(--dim);font-size:12.5px}
+
+/* Terminal log */
+.log{height:13.5em;overflow-y:auto;border-top:1px dashed var(--faint);border-bottom:1px dashed var(--faint);padding:10px 2px;font-size:13.5px;display:flex;flex-direction:column;gap:4px;scrollbar-color:var(--faint) transparent}
+.line{max-width:70ch}
+.line::before{content:"> ";color:var(--dim)}
+.line.hdr{font-family:var(--display);font-size:19px;letter-spacing:.06em;margin-top:6px}
+.line.hdr::before{content:""}
+.line.dim{color:var(--dim)}
+.line.alert{color:var(--alert)}
+.line.win{background:var(--amber);color:var(--ink);padding:2px 6px}
+.line.win::before{color:var(--ink)}
+.line.new{animation:in .35s ease-out}
+@keyframes in{from{opacity:0;transform:translateY(3px)}to{opacity:1}}
+
+/* Market */
+.market{display:flex;flex-direction:column;gap:8px}
+.mhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 84px 42px auto;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--faint);font-variant-numeric:tabular-nums}
+.row.hdrrow{border-bottom:1px solid var(--dim);padding-top:0}
+.row .name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .name .tag{color:var(--alert);font-size:11px;margin-left:4px}
+.row .price{text-align:right;font-family:var(--display);font-size:21px}
+.row .own{text-align:right;color:var(--dim)}
+.row .own.has{color:var(--amber)}
+.row .btns{display:flex;gap:6px}
+.row.na .name,.row.na .price{color:var(--faint)}
+.row.hot .price{color:var(--alert)}
+
+button{font-family:var(--mono);font-size:13px;letter-spacing:.06em;text-transform:uppercase;background:transparent;color:var(--amber);border:1px solid var(--dim);padding:0 10px;min-height:38px;cursor:pointer;border-radius:0}
+button:hover:not(:disabled){background:var(--amber);color:var(--ink);border-color:var(--amber)}
+button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button:disabled{color:var(--faint);border-color:var(--faint);cursor:not-allowed}
+button.primary{border-color:var(--amber);font-weight:600}
+button.mini{min-height:34px;padding:0 9px;font-size:12px}
+button kbd{font-family:inherit;color:var(--dim);margin-right:4px}
+button:hover:not(:disabled) kbd{color:var(--ink)}
+
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+footer{color:var(--dim);font-size:11.5px;text-align:center}
+
+/* Modal */
+.modal-back{position:fixed;inset:0;background:rgba(8,5,2,.78);display:flex;align-items:center;justify-content:center;z-index:50;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.modal{background:var(--screen);border:1px solid var(--amber);box-shadow:0 0 30px rgba(255,178,46,.15);width:100%;max-width:520px;max-height:100%;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.modal h3{font-family:var(--display);font-weight:400;font-size:30px;margin:0;line-height:1;letter-spacing:.05em;text-wrap:balance}
+.modal h3.alert{color:var(--alert);text-shadow:0 0 8px rgba(255,106,61,.4)}
+.modal p{margin:0;max-width:62ch}
+.modal .dim{color:var(--dim)}
+.modal .alert{color:var(--alert)}
+.modal .btnrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.modal input{font-family:var(--display);font-size:28px;background:var(--bg);color:var(--amber);border:1px solid var(--dim);padding:4px 10px;width:9ch;border-radius:0}
+.modal input:focus{outline:2px solid var(--amber);outline-offset:1px}
+.qtyrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.travel{display:flex;flex-direction:column;gap:6px}
+.travel button{text-align:left;text-transform:none;letter-spacing:0;display:flex;flex-direction:column;align-items:flex-start;padding:8px 12px;gap:2px;font-size:14px}
+.travel button .w{font-size:11.5px;color:var(--dim)}
+.travel button:hover:not(:disabled) .w{color:var(--ink)}
+.help table{border-collapse:collapse;width:100%;font-size:12.5px}
+.help td,.help th{border-bottom:1px solid var(--faint);padding:5px 6px 5px 0;text-align:left;vertical-align:top}
+.help th{color:var(--dim);font-weight:400;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+.tablewrap{overflow-x:auto}
+.scores{display:flex;flex-direction:column;gap:2px;font-variant-numeric:tabular-nums;font-size:12.5px}
+.scores div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted var(--faint)}
+.big{font-family:var(--display);font-size:40px;line-height:1}
+</style>
+
+<div class="wrap">
+  <header class="masthead glow">
+    <div class="corp">Consolidated Mutual Trust &amp; Fidelity · 100,412 employees · Est. 1887 · Last modernized 1987</div>
+    <h1>APPLORD<small>v1.0</small></h1>
+    <div class="sub">One app. Six gates. Thirty days. Get it into production before the regulator gets into you.</div>
+  </header>
+
+  <main class="crt glow" id="crt">
+    <section class="status" id="status" aria-label="Status"></section>
+    <section class="pipe" id="pipe" aria-label="SDLC gates"></section>
+    <section class="gate" id="gate" aria-label="Next gate"></section>
+    <section class="log" id="log" aria-live="polite" aria-label="Terminal log"></section>
+    <section class="market">
+      <div class="mhead"><h2 id="mtitle">THE BLACK MARKET</h2><span class="label" id="mwhere"></span></div>
+      <div class="rows" id="market"></div>
+    </section>
+    <nav class="actions" id="actions" aria-label="Commands"></nav>
+  </main>
+
+  <footer>A work of fiction. Any resemblance to your employer is your employer's problem.</footer>
+</div>
+
+<div class="modal-back" id="modal" hidden><div class="modal glow" role="dialog" aria-modal="true" id="mbox"></div></div>
+
+<script>
+(function(){
+const MAXDAY=30, INTEREST=0.05, DEBT_CAP=40000, CAP_MAX=250;
+const ITEMS=[
+  {id:'jira',  name:'Jira Tickets',    lo:8,    hi:45},
+  {id:'visio', name:'Visio Diagrams',  lo:40,   hi:180},
+  {id:'macro', name:'Excel Macros',    lo:90,   hi:450,   sketchy:1},
+  {id:'fw',    name:'FW Exceptions',   lo:250,  hi:1100,  sketchy:1},
+  {id:'test',  name:'Test Evidence',   lo:30,   hi:220},
+  {id:'exec',  name:'Exec Signatures', lo:900,  hi:3800},
+  {id:'prod',  name:'Prod Access',     lo:800,  hi:3500,  sketchy:1},
+  {id:'oracle',name:'Oracle Licenses', lo:3000, hi:11000, sketchy:1},
+];
+const LOCS=[
+  {id:'cube',name:'Cubicle Farm',where:'Floor 3, Tower B · home base, PMO, break room',bias:{macro:.6,jira:1.1},
+   flavor:["Fluorescent hum. Someone is microwaving fish. Again.","A printer jams in the distance. Nobody moves. Nobody ever moves.","Your desk phone has 14 voicemails. All from 2019. All from Gary."]},
+  {id:'ba',name:'Business Analysis Silo',where:'Floor 14 · Requirements Sign-off',bias:{visio:.6,jira:1.4,exec:1.35},
+   flavor:["A whiteboard reads AS-IS vs TO-BE vs WHY-EVEN-BE.","The analysts are writing requirements for the requirements template.","Someone is arguing that 'the system shall' and 'the system will' are legally different. They might be right."]},
+  {id:'exec',name:'Executive Floor',where:'Floor 40 · Architecture Review Board',bias:{exec:.7,visio:1.5,oracle:1.4},
+   flavor:["Thick carpet. Thin patience. A VP is 'leveraging' something.","The coffee here is free and the opinions are expensive.","An SVP asks if your app 'has AI in it'. You say yes. It does not."]},
+  {id:'sec',name:'InfoSec Bunker',where:'Sub-basement B2 · Security Review',bias:{fw:.6,macro:1.5,prod:1.5},
+   flavor:["No windows. No USB ports. No joy.","A sign reads: ALL REQUESTS DENIED BY DEFAULT. HAVE A NICE DAY.","A security analyst stares at you like you personally clicked the phishing link."]},
+  {id:'qa',name:'QA Annex',where:'Building 9, Parsippany NJ · User Acceptance Testing',bias:{test:.5,jira:.6,macro:1.2},
+   flavor:["The test environment was last refreshed when flip phones were cool.","Test data includes a customer named 'Test McTestface' with $4 billion in checking.","A tester has been waiting on an environment ticket so long he grew a beard. He's 24."]},
+  {id:'cab',name:'Conference Room 7B',where:'Floor 7 · Change Advisory Board (Tuesdays only)',bias:{test:1.4,exec:1.25,prod:1.3},
+   flavor:["The projector has been broken since 2014. Fixing it requires a CAB approval.","Twelve chairs, nine people, forty opinions.","A stale bagel sits on the table like a monument to someone's retirement."]},
+  {id:'dc',name:'Data Center',where:'Secaucus NJ · Production Deploy',bias:{prod:.6,oracle:.75,fw:1.5},
+   flavor:["64°F and 90 decibels. The mainframe is older than your manager and better documented.","A rack labeled DO NOT TOUCH has been running payroll since 1991.","A sysadmin eats a sandwich directly over a server. He's earned it."]},
+];
+const GATES=[
+  {code:'REQ', name:'Requirements Sign-off',   loc:'ba',  need:{jira:25,exec:1}, reward:2000,
+   pass:"The BAs sign off on 412 pages of requirements. Nobody will ever read them. Phase 1 funding released: +$2,000."},
+  {code:'ARB', name:'Architecture Review Board',loc:'exec',need:{visio:8,exec:1}, reward:3000,
+   pass:"The ARB approves your design on the condition you never contact them again. +$3,000."},
+  {code:'SEC', name:'Security Review',          loc:'sec', need:{fw:6,test:12},  reward:4000,
+   pass:"InfoSec grants a provisional pass, valid until they remember you exist. +$4,000."},
+  {code:'UAT', name:'User Acceptance Testing',  loc:'qa',  need:{test:30,macro:4},reward:5000,
+   pass:"Three business users clicked around for 20 minutes and said 'looks fine I guess'. UAT passed. +$5,000."},
+  {code:'CAB', name:'Change Advisory Board',    loc:'cab', need:{prod:2,exec:2}, reward:6000, cabOnly:1,
+   pass:"CAB approves your change for the Saturday 2 a.m. window. Your weekend is cancelled. +$6,000."},
+  {code:'PROD',name:'Production Deploy',        loc:'dc',  need:{oracle:2,jira:20},reward:0,
+   pass:"You open 20 change tickets in 20 systems, feed the Oracle beast, and push the button. IT'S LIVE."},
+];
+const SPIKE={
+  jira:"Agile transformation announced! Every team needs a backlog by Friday. Jira tickets are going for insane prices!",
+  visio:"The CTO read a Gartner report. Everyone suddenly needs 'target-state diagrams'. Visio prices are through the roof!",
+  macro:"SOX audit season! Finance will pay anything for macros that make the numbers match.",
+  fw:"A pen test found Telnet open on the mainframe. Firewall exceptions are now worth more than your car.",
+  test:"A regulator asked for 'evidence of testing'. Screenshots are selling like hotcakes!",
+  exec:"Q4 change freeze! Getting an exec to sign anything costs a damn fortune.",
+  prod:"After the last outage, prod got locked down. Black-market access tokens are fetching crazy money!",
+  oracle:"A license audit letter arrived! Everyone's scrambling for 'compliant' Oracle licenses!"
+};
+const CRASH={
+  jira:"An intern bulk-imported 40,000 tickets from a 2009 spreadsheet. Jira tickets are worthless!",
+  visio:"Someone discovered PowerPoint has shapes. Visio diagrams are dirt cheap!",
+  macro:"A retiring VBA wizard dumped his whole library on a shared drive. Macros for pennies!",
+  fw:"InfoSec's approver is on vacation and his backup approves everything. Firewall exceptions are cheap!",
+  test:"The offshore vendor delivered 10,000 screenshots of the login page. Test evidence is cheap!",
+  exec:"Exec offsite at a golf resort. After the third mimosa, signatures are basically free.",
+  prod:"Someone pasted the prod password into a 4,000-person Teams channel. Prod access is cheap as hell!",
+  oracle:"A business unit got sold off. Their Oracle licenses are falling off a truck!"
+};
+
+const $=s=>document.querySelector(s);
+const fmt=n=>(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('en-US');
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=(a,b)=>Math.floor(rnd(a,b+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const item=id=>ITEMS.find(i=>i.id===id);
+const locIdx=id=>LOCS.findIndex(l=>l.id===id);
+const used=()=>ITEMS.reduce((s,i)=>s+S.inv[i.id],0);
+const isCab=d=>d%5===2;
+const nextCab=()=>{for(let d=S.day;d<=MAXDAY;d++) if(isCab(d)) return d; return null;};
+const sketchyUnits=()=>ITEMS.filter(i=>i.sketchy).reduce((s,i)=>s+S.inv[i.id],0);
+
+let S=null, newLines=0, hot={};
+
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function fetchStore(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
+
+function log(t,c){S.log.push({t,c:c||''});if(S.log.length>80)S.log.splice(0,S.log.length-80);newLines++;}
+
+function newGame(){
+  S={day:1,loc:0,cash:5000,debt:5000,sanity:100,cap:100,raci:false,gate:0,
+     inv:Object.fromEntries(ITEMS.map(i=>[i.id,0])),prices:{},hotItem:null,log:[],over:false,result:null};
+  genPrices();
+  log('== DAY 1 · CUBICLE FARM ==','hdr');
+  log("Welcome to Consolidated Mutual. Your mission: get one (1) app into production by Day 30, when the regulator's deadline hits.");
+  log("Six gates, in order. This is waterfall. There is no other way. There has never been another way.");
+  log("You have "+fmt(5000)+" of cost-center budget and owe Brenda from the PMO "+fmt(5000)+" at 5% a day. Brenda remembers everything.");
+  log("Buy low, sell high, hoard what each gate needs. Tap ? for the playbook.",'dim');
+}
+
+function genPrices(){
+  const L=LOCS[S.loc], p={};
+  const must=new Set(GATES.filter(g=>g.loc===L.id).flatMap(g=>Object.keys(g.need)));
+  const price=it=>Math.max(1,Math.round(rnd(it.lo,it.hi)*(L.bias[it.id]||1)));
+  ITEMS.forEach(it=>{p[it.id]=(must.has(it.id)||Math.random()<.78)?price(it):null;});
+  let missing=ITEMS.filter(i=>p[i.id]==null);
+  while(ITEMS.length-missing.length<5){const it=pick(missing);p[it.id]=price(it);missing=missing.filter(m=>m!==it);}
+  S.prices=p; S.hotItem=null;
+}
+
+function advanceDay(){
+  S.day++;
+  if(S.debt>0) S.debt=Math.round(S.debt*(1+INTEREST));
+  if(S.day>MAXDAY){S.day=MAXDAY;endGame('time');}
+}
+
+function damage(n){S.sanity=Math.max(0,S.sanity-n);if(S.sanity<=0)endGame('burnout');}
+
+/* ---------- events ---------- */
+function marketEvent(next){
+  const avail=ITEMS.filter(i=>S.prices[i.id]!=null);
+  const it=pick(avail);
+  if(Math.random()<.5){S.prices[it.id]=Math.round(S.prices[it.id]*rnd(3,5));log(SPIKE[it.id],'alert');}
+  else{S.prices[it.id]=Math.max(1,Math.round(S.prices[it.id]*rnd(.18,.35)));log(CRASH[it.id],'alert');}
+  S.hotItem=it.id; next();
+}
+const MISC=[
+  {w:6,fn(next){const amt=Math.round(S.cash*rnd(.1,.25));if(amt<50)return next();S.cash-=amt;
+    log(`A Big-4 consultant corners you at the elevator and bills you ${fmt(amt)} for a 'synergy discovery workshop'. You didn't even get the slides.`,'alert');next();}},
+  {w:6,fn(next){const it=pick(ITEMS.filter(i=>i.lo<500));const room=S.cap-used();const q=Math.min(room,ri(3,10));
+    if(q<=0)return next();S.inv[it.id]+=q;log(`You find ${q} ${it.name} in a decommissioned SharePoint site. Finders keepers.`);next();}},
+  {w:4,fn(next){const held=ITEMS.filter(i=>S.inv[i.id]>1);if(!held.length)return next();const it=pick(held);const lost=Math.ceil(S.inv[it.id]*.4);S.inv[it.id]-=lost;
+    log(`REORG! Your team now reports to Marketing. ${lost} of your ${it.name} were 'sunset' in the transition.`,'alert');next();}},
+  {w:4,fn(next){log("Mandatory Cybersecurity Awareness Training. 47 slides, 3 quizzes, 1 hostage video. You lose a whole day.",'alert');advanceDay();next();}},
+  {w:5,fn(next){S.sanity=Math.min(100,S.sanity+10);log("Free pizza in the break room. It's pineapple, but you are in no position to judge. Sanity +10.");next();}},
+  {w:6,fn(next){log("Your manager wants a 'quick sync'. It's 75 minutes and none of it is about you. Sanity -8.",'alert');damage(8);next();}},
+  {w:5,fn(next){log("Reply-all apocalypse: 3,000 people reply 'please remove me from this list'. Sanity -6.",'alert');damage(6);next();}},
+];
+function miscEvent(next){const tot=MISC.reduce((s,m)=>s+m.w,0);let r=Math.random()*tot;for(const m of MISC){if((r-=m.w)<0)return m.fn(next);}next();}
+
+function brendaEvent(next){
+  log("Brenda from the PMO dropped a 7 a.m. 'debt burndown' meeting on your calendar. The RAG status is red. Everything is red. Sanity -10.",'alert');
+  damage(10);next();
+}
+
+function raciOffer(next){
+  const price=ri(20,40)*100;
+  showModal({title:'A CONSULTANT APPROACHES',
+    body:`<p>A guy in a quarter-zip offers you a laminated RACI matrix for <b>${fmt(price)}</b>. "With this," he whispers, "nothing is ever your fault."</p><p class="dim">Lets you push back when Internal Audit corners you.</p>`,
+    buttons:[{label:'Buy it',primary:1,disabled:S.cash<price,fn(){S.cash-=price;S.raci=true;log(`You bought a laminated RACI matrix for ${fmt(price)}. You are now Accountable for nothing.`);closeModal();next();}},
+             {label:'No thanks',fn(){log("You pass on the RACI. Quarter-zip guy sighs and goes to bill someone else.",'dim');closeModal();next();}}]});
+}
+function quotaOffer(next){
+  if(S.cap>=CAP_MAX) return next();
+  const add=ri(2,4)*10, price=ri(12,25)*100;
+  showModal({title:'IT HAS AN OFFER',
+    body:`<p>A desktop-support tech can bump your SharePoint quota by <b>${add} slots</b> for <b>${fmt(price)}</b>. Cash only. Don't ask how.</p><p class="dim">Laptop: ${used()}/${S.cap} used.</p>`,
+    buttons:[{label:'Deal',primary:1,disabled:S.cash<price,fn(){S.cash-=price;S.cap=Math.min(CAP_MAX,S.cap+add);log(`Quota bumped. You can now hoard ${S.cap} items.`);closeModal();next();}},
+             {label:'Pass',fn(){closeModal();next();}}]});
+}
+
+function auditEvent(next){
+  let n=ri(1,Math.min(4,1+Math.floor(S.day/7))), msg='';
+  const draw=()=>{
+    if(S.over) return;
+    showModal({title:'INTERNAL AUDIT!',alert:1,
+      body:`<p>Kevin from Internal Audit${n>1?` and ${n-1} associate${n>2?'s':''}`:''} want to "walk through your controls". They've seen your Excel macros.</p>
+            ${msg?`<p class="${msg.startsWith('!')?'alert':''}">${esc(msg.replace(/^!/,''))}</p>`:''}
+            <p class="dim">Auditors: ${n} · Sanity: ${S.sanity} · RACI: ${S.raci?'armed':'none'}</p>`,
+      buttons:[
+        {label:'Run',primary:1,fn(){
+          if(Math.random()<.55){log("You fake a Teams call ('sorry, you're breaking up'), and escape down the stairwell.");closeModal();next();}
+          else{const d=ri(3,7)+2*n;msg=`!You duck into a stairwell. Kevin knows the stairwell. Sanity -${d}.`;damage(d);draw();}}},
+        {label:'Push back (RACI)',disabled:!S.raci,fn(){
+          if(Math.random()<.5){n--;
+            if(n<=0){const loot=ri(10,40)*100;S.cash+=loot;log(`Audit retreats in disarray. In the chaos you find ${fmt(loot)} of their offsite budget. Nobody will ever reconcile it.`);closeModal();return next();}
+            msg="You cite row 7 of the RACI. An associate realizes he's only 'Informed' and leaves in tears.";}
+          else{const d=ri(3,6)+2*n;msg=`!Kevin cites SOX Section 404 right back at you. Sanity -${d}.`;damage(d);}
+          draw();}},
+        {label:'Comply',fn(){
+          const took=[];ITEMS.filter(i=>i.sketchy&&S.inv[i.id]>0).forEach(i=>{const q=Math.ceil(S.inv[i.id]/2);S.inv[i.id]-=q;took.push(`${q} ${i.name}`);});
+          log(`You comply. Audit confiscates ${took.length?took.join(', '):'nothing, which they find deeply suspicious'} 'for evidence' and writes up 14 findings. You lose a day remediating.`,'alert');
+          closeModal();advanceDay();next();}}
+      ]});
+  };
+  draw();
+}
+
+function runQueue(q){
+  const step=()=>{if(S.over){render();return;} if(!q.length){render();save();return;} q.shift()(step);};
+  step();
+}
+
+/* ---------- actions ---------- */
+function travel(i){
+  closeModal(); if(S.over||i===S.loc) return;
+  S.loc=i; advanceDay(); if(S.over) return;
+  genPrices();
+  log(`== DAY ${S.day} · ${LOCS[i].name.toUpperCase()} ==`,'hdr');
+  log(pick(LOCS[i].flavor),'dim');
+  if(isCab(S.day)) log("It's Tuesday. CAB is in session in Conference Room 7B.",'dim');
+  const q=[];
+  if(Math.random()<.28) q.push(marketEvent);
+  if(Math.random()<.36) q.push(miscEvent);
+  if(S.debt>8000&&S.day>8&&Math.random()<.22) q.push(brendaEvent);
+  if(Math.random()<.06+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
+  const o=Math.random();
+  if(o<.07&&!S.raci) q.push(raciOffer); else if(o<.14) q.push(quotaOffer);
+  runQueue(q);
+}
+
+function buyPrompt(id){
+  const it=item(id),p=S.prices[id],room=S.cap-used(),afford=Math.floor(S.cash/p),max=Math.min(room,afford);
+  if(max<=0){log(room<=0?"Your laptop is full. IT says to 'just use OneDrive'. You do not trust OneDrive.":`You can't afford a single ${it.name}. Brenda at the PMO is always happy to help. Always.`,'alert');render();return;}
+  qtyModal(`BUY ${it.name.toUpperCase()}`,`${fmt(p)} each. You can afford ${afford}, and have room for ${room}.`,max,q=>{
+    S.cash-=q*p;S.inv[id]+=q;log(`Bought ${q} ${it.name} for ${fmt(q*p)}.`);});
+}
+function sellPrompt(id){
+  const it=item(id),p=S.prices[id],max=S.inv[id];
+  qtyModal(`SELL ${it.name.toUpperCase()}`,`${fmt(p)} each. You hold ${max}.`,max,q=>{
+    S.cash+=q*p;S.inv[id]-=q;log(`Sold ${q} ${it.name} for ${fmt(q*p)}.`);});
+}
+
+function submitGate(){
+  if(S.over||S.gate>=GATES.length) return;
+  const g=GATES[S.gate],L=LOCS[S.loc];
+  if(L.id!==g.loc){
+    const here=GATES.findIndex(x=>x.loc===L.id);
+    if(here>S.gate) log(`This is waterfall, pal. ${g.code} comes before ${GATES[here].code}. No skipping, no parallel tracks, no joy.`,'alert');
+    else log(`The ${g.name} doesn't happen here. Head to ${LOCS[locIdx(g.loc)].name}.`,'alert');
+    return render();
+  }
+  if(g.cabOnly&&!isCab(S.day)){const nc=nextCab();
+    log(`CAB only convenes on Tuesdays (Days 2, 7, 12, 17, 22, 27). ${nc?`Next session: Day ${nc}.`:"There are no more sessions before the deadline. Oof."}`,'alert');return render();}
+  const short=Object.entries(g.need).filter(([k,v])=>S.inv[k]<v);
+  if(short.length){log(`Rejected. You're short ${short.map(([k,v])=>`${v-S.inv[k]} ${item(k).name}`).join(' and ')}. The board says "please revisit" and leaves early for drinks.`,'alert');return render();}
+  Object.entries(g.need).forEach(([k,v])=>S.inv[k]-=v);
+  S.gate++;S.cash+=g.reward;log(g.pass,'win');
+  if(S.gate===GATES.length){endGame('win');return;}
+  render();save();
+}
+
+function pmo(){
+  const draw=(msg)=>{
+    const room=Math.max(0,DEBT_CAP-S.debt);
+    showModal({title:'BRENDA FROM THE PMO',
+      body:`<p>Brenda looks up from a Gantt chart the size of a bedsheet. "Need funding, hon? I charge 5%. Per day. Compounding. Like a friend would."</p>
+            ${msg?`<p>${esc(msg)}</p>`:''}
+            <p class="dim">You owe ${fmt(S.debt)} · Budget ${fmt(S.cash)} · Credit left ${fmt(room)}</p>`,
+      buttons:[
+        {label:'Borrow $1k',disabled:room<1000,fn(){S.debt+=1000;S.cash+=1000;log("Borrowed $1,000 from Brenda.");draw("She writes it in a notebook. In pen.");}},
+        {label:'Borrow $5k',disabled:room<5000,fn(){S.debt+=5000;S.cash+=5000;log("Borrowed $5,000 from Brenda.");draw("\"Big plans, huh?\" She smiles. Her eyes don't.");}},
+        {label:'Repay $1k',disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(1000,S.debt,S.cash);S.debt-=a;S.cash-=a;log(`Repaid ${fmt(a)} to the PMO.`);draw("She crosses out a line. Barely.");}},
+        {label:'Repay all',primary:1,disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(S.debt,S.cash);S.debt-=a;S.cash-=a;log(`Repaid ${fmt(a)} to the PMO.${S.debt===0?' You are free. For now.':''}`);draw(S.debt===0?"\"Pleasure doing business.\" She updates your status to green.":"Partial payment. She's not mad. She's disappointed.");}},
+        {label:'Leave',fn(){closeModal();render();save();}}
+      ]});
+  };
+  draw();
+}
+function latte(){
+  if(S.cash<150){log("You can't afford the fancy latte. You drink the break-room coffee. It tastes like a budget cut.",'alert');return render();}
+  S.cash-=150;S.sanity=Math.min(100,S.sanity+15);
+  log("You expense a $150 oat-milk lavender latte as a 'client meeting'. Sanity +15.");render();save();
+}
+function usb(){
+  const price=1800;
+  if(S.cap>=CAP_MAX){log("Your laptop can't hold any more. It's already making a noise like a leaf blower.",'alert');return render();}
+  if(S.cash<price){log(`A 'certified' USB drive costs ${fmt(price)}. Procurement says that's a fair price. It is not.`,'alert');return render();}
+  S.cash-=price;S.cap=Math.min(CAP_MAX,S.cap+30);
+  log(`You requisition an encrypted USB drive for ${fmt(price)}. Capacity +30 (now ${S.cap}).`);render();save();
+}
+
+/* ---------- end ---------- */
+function rank(net){
+  if(net>=100000) return 'APPLORD · Distinguished Fellow of Actually Shipping';
+  if(net>=50000) return 'SVP of Digital Transformation';
+  if(net>=20000) return 'Managing Director, Synergy';
+  if(net>=0) return 'Senior Manager (raise deferred due to "headwinds")';
+  return 'Shipped it. Finance would like a word.';
+}
+function endGame(kind){
+  if(S.over) return;
+  S.over=true;S.result=kind;
+  const net=S.cash-S.debt;
+  let title,txt;
+  if(kind==='win'){title=rank(net);txt=`Your app is LIVE in production on Day ${S.day}. Within an hour, someone files a P1 because the font changed. Congratulations, it's yours forever now.`;}
+  else if(kind==='time'){title='Project "Paused Indefinitely"';txt=`Day 30 came and went. You made it through ${S.gate} of 6 gates. You've been realigned to the Metaverse Center of Excellence.`;}
+  else {title='Burnout';txt="You walk out mid-standup and start an artisanal hot sauce company in Vermont. Honestly? Good for you.";}
+  S.final={title,txt,net};
+  log(kind==='win'?'*** DEPLOYED TO PRODUCTION ***':'*** GAME OVER ***',kind==='win'?'win':'alert');
+  const scores=fetchStore('applord-scores')||[];
+  scores.push({win:kind==='win',net,gate:S.gate,day:S.day,title,date:new Date().toISOString().slice(0,10)});
+  scores.sort((a,b)=>(b.win-a.win)||(b.gate-a.gate)||(b.net-a.net));
+  store('applord-scores',scores.slice(0,5));
+  closeModal();render();save();showEnd();
+}
+function scoresHtml(){
+  const sc=fetchStore('applord-scores')||[];
+  if(!sc.length) return '<p class="dim">No runs on this device yet. Be the first to ship something.</p>';
+  return '<div class="scores">'+sc.map((s,i)=>`<div><span>${i+1}. ${s.win?'SHIPPED':'Gate '+s.gate+'/6'} · ${esc(s.date)}</span><span>${fmt(s.net)}</span></div>`).join('')+'</div>';
+}
+function showEnd(){
+  const f=S.final;
+  showModal({title:f.title,alert:S.result!=='win',
+    body:`<p>${esc(f.txt)}</p><p class="big">${fmt(f.net)}</p><p class="dim">Net worth: budget ${fmt(S.cash)} minus PMO debt ${fmt(S.debt)}.</p><p class="label">Hall of fame (this device)</p>${scoresHtml()}`,
+    buttons:[{label:'New career',primary:1,fn(){closeModal();newGame();render();save();}},{label:'Look at the wreckage',fn(){closeModal();}}]});
+}
+
+/* ---------- modal ---------- */
+let modalBtns=[];
+function showModal({title,body,buttons,alert}){
+  const box=$('#mbox');
+  modalBtns=buttons;
+  box.innerHTML=`<h3 class="${alert?'alert':''}">${esc(title)}</h3>${body}<div class="btnrow">${buttons.map((b,i)=>`<button type="button" data-i="${i}" class="${b.primary?'primary':''}" ${b.disabled?'disabled':''}>${esc(b.label)}</button>`).join('')}</div>`;
+  box.querySelectorAll('.btnrow button').forEach(el=>el.addEventListener('click',()=>modalBtns[+el.dataset.i].fn()));
+  $('#modal').hidden=false;
+  const f=box.querySelector('input')||box.querySelector('button:not(:disabled)');f&&f.focus();
+}
+function closeModal(){$('#modal').hidden=true;$('#mbox').innerHTML='';modalBtns=[];}
+function qtyModal(title,txt,max,done){
+  const go=()=>{let q=parseInt($('#qty').value,10);if(!q||q<1){closeModal();render();return;}q=Math.min(q,max);closeModal();done(q);render();save();};
+  showModal({title,body:`<p>${esc(txt)}</p><div class="qtyrow"><label class="label" for="qty">Quantity</label><input id="qty" type="number" inputmode="numeric" min="1" max="${max}" value="${max}"></div>`,
+    buttons:[{label:'Confirm',primary:1,fn:go},{label:`Max (${max})`,fn(){$('#qty').value=max;$('#qty').focus();}},{label:'Cancel',fn(){closeModal();}}]});
+  const inp=$('#qty');inp.select();inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();go();}});
+}
+function travelModal(){
+  const g=GATES[S.gate];
+  const box=$('#mbox');
+  modalBtns=[{fn(){closeModal();}}];
+  box.innerHTML=`<h3>WHERE TO?</h3><p class="dim">Every trip costs a day. Brenda's interest never sleeps.</p><div class="travel">${LOCS.map((l,i)=>{
+    const gi=GATES.findIndex(x=>x.loc===l.id);const tag=gi===S.gate?' ◀ next gate':gi>=0&&gi<S.gate?' ✓':'';
+    return `<button type="button" data-loc="${i}" ${i===S.loc?'disabled':''}><span>${esc(l.name)}${tag}${i===S.loc?' (you are here)':''}</span><span class="w">${esc(l.where)}</span></button>`;}).join('')}</div><div class="btnrow"><button type="button" data-i="0">Stay put</button></div>`;
+  box.querySelectorAll('[data-loc]').forEach(el=>el.addEventListener('click',()=>travel(+el.dataset.loc)));
+  box.querySelector('[data-i]').addEventListener('click',closeModal);
+  $('#modal').hidden=false;box.querySelector('[data-loc]:not(:disabled)').focus();
+}
+function helpModal(){
+  showModal({title:'THE PLAYBOOK',body:`<div class="help">
+    <p>You have 30 business days to get your app into production at Consolidated Mutual. Every trip between silos costs a day. PMO debt grows 5% a day.</p>
+    <p>Trade enterprise contraband between departments: buy where it's cheap, sell where it's desperate. Hoard what each gate needs and submit at the right place, in order. Each gate releases phase funding.</p>
+    <div class="tablewrap"><table><tr><th>Gate</th><th>Where</th><th>Costs you</th><th>Funding</th></tr>
+    ${GATES.map(g=>`<tr><td>${g.code}</td><td>${esc(LOCS[locIdx(g.loc)].name)}${g.cabOnly?' (Tuesdays: days 2, 7, 12, 17, 22, 27)':''}</td><td>${Object.entries(g.need).map(([k,v])=>v+' '+esc(item(k).name)).join(', ')}</td><td>${g.reward?fmt(g.reward):'Glory'}</td></tr>`).join('')}
+    </table></div>
+    <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
+    <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells extra storage.</p>
+    <p class="dim">Desktop keys: T travel · G submit gate · P PMO · ? help</p>
+    <p class="label">Hall of fame (this device)</p>${scoresHtml()}</div>`,
+    buttons:[{label:'Got it',primary:1,fn(){closeModal();}},{label:'Start over',fn(){closeModal();newGame();render();save();}}]});
+}
+
+/* ---------- render ---------- */
+function render(){
+  const L=LOCS[S.loc];
+  const bar=Math.round(S.sanity/10);
+  $('#status').innerHTML=`
+    <div class="stat"><span class="label">Day</span><span class="v ${S.day>=26?'bad':''}">${S.day}/${MAXDAY}</span></div>
+    <div class="stat"><span class="label">Budget</span><span class="v">${fmt(S.cash)}</span></div>
+    <div class="stat"><span class="label">PMO debt</span><span class="v ${S.debt>10000?'bad':''}">${fmt(S.debt)}</span></div>
+    <div class="stat"><span class="label">Laptop</span><span class="v">${used()}/${S.cap}</span></div>
+    <div class="stat wide"><span class="label">Location</span><span class="v">${esc(L.name)}</span></div>
+    <div class="stat"><span class="label">Sanity ${S.sanity}</span><span class="bar" aria-label="Sanity ${S.sanity} of 100">${'█'.repeat(bar)}<span class="off">${'░'.repeat(10-bar)}</span></span></div>
+    <div class="stat"><span class="label">RACI</span><span class="v">${S.raci?'ARMED':'NONE'}</span></div>`;
+
+  $('#pipe').innerHTML=GATES.map((g,i)=>`<span class="cell ${i<S.gate?'done':i===S.gate?'now':''}">${g.code}${i===S.gate&&!S.over?'<span class="cursor"></span>':''}</span>`).join('<span class="arrow">▸</span>');
+
+  if(S.gate<GATES.length){
+    const g=GATES[S.gate],gl=LOCS[locIdx(g.loc)],here=gl.id===L.id;
+    let note=here?'You are here. Submit when your stash is ready.':`Submit at ${gl.name}.`;
+    if(g.cabOnly){const nc=nextCab();note+=isCab(S.day)?' CAB is in session today.':nc?` Next CAB: Day ${nc}.`:' No CAB sessions left. Yikes.';}
+    $('#gate').innerHTML=`<span class="label">Next gate · ${S.gate+1} of 6${g.reward?' · pays '+fmt(g.reward):''}</span>
+      <span class="title">${g.code} · ${esc(g.name)}</span>
+      <div class="needs">${Object.entries(g.need).map(([k,v])=>`<span class="need ${S.inv[k]>=v?'ok':'short'}">${esc(item(k).name)} ${Math.min(S.inv[k],v)}/${v}</span>`).join('')}</div>
+      <span class="note">${esc(note)}</span>`;
+  } else {
+    $('#gate').innerHTML=`<span class="label">All gates passed</span><span class="title">Your app is in production. It's your problem forever now.</span>`;
+  }
+
+  const logEl=$('#log');
+  logEl.innerHTML=S.log.map((l,i)=>`<div class="line ${l.c} ${i>=S.log.length-newLines?'new':''}">${esc(l.t)}</div>`).join('');
+  logEl.scrollTop=logEl.scrollHeight;newLines=0;
+
+  $('#mwhere').textContent=L.where;
+  const dis=S.over;
+  $('#market').innerHTML=`<div class="row hdrrow"><span class="label">Item</span><span class="label" style="text-align:right">Price</span><span class="label" style="text-align:right">Own</span><span class="label">Trade</span></div>`+
+    ITEMS.map(it=>{const p=S.prices[it.id],na=p==null,own=S.inv[it.id];
+      return `<div class="row ${na?'na':''} ${S.hotItem===it.id?'hot':''}"><span class="name">${esc(it.name)}${it.sketchy?'<span class="tag" title="Sketchy: attracts Internal Audit">!</span>':''}</span>
+      <span class="price">${na?'—':fmt(p)}</span><span class="own ${own?'has':''}">${own}</span>
+      <span class="btns"><button type="button" class="mini" data-buy="${it.id}" ${na||dis?'disabled':''} aria-label="Buy ${esc(it.name)}">Buy</button><button type="button" class="mini" data-sell="${it.id}" ${na||!own||dis?'disabled':''} aria-label="Sell ${esc(it.name)}">Sell</button></span></div>`;}).join('');
+  document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>buyPrompt(b.dataset.buy));
+  document.querySelectorAll('[data-sell]').forEach(b=>b.onclick=()=>sellPrompt(b.dataset.sell));
+
+  const acts=[];
+  acts.push({k:'T',label:'Travel',fn:travelModal,primary:1});
+  if(S.gate<GATES.length) acts.push({k:'G',label:`Submit ${GATES[S.gate].code}`,fn:submitGate});
+  if(L.id==='cube'){acts.push({k:'P',label:'Brenda (PMO)',fn:pmo});acts.push({k:'L',label:'Latte $150',fn:latte});}
+  if(L.id==='dc') acts.push({k:'U',label:'USB drive $1,800',fn:usb});
+  const a=$('#actions');
+  a.innerHTML=acts.map((x,i)=>`<button type="button" data-a="${i}" class="${x.primary?'primary':''}" ${dis?'disabled':''}><kbd>${x.k}</kbd>${esc(x.label)}</button>`).join('')+
+    (S.over?`<button type="button" class="primary" id="b-new">New career</button>`:'')+
+    `<button type="button" id="b-help" aria-label="Help"><kbd>?</kbd>Playbook</button>`;
+  a.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>acts[+b.dataset.a].fn());
+  $('#b-help').onclick=helpModal;
+  if(S.over) $('#b-new').onclick=()=>{newGame();render();save();};
+  actMap=Object.fromEntries(acts.map(x=>[x.k.toLowerCase(),x.fn]));
+}
+let actMap={};
+
+function save(){store('applord-save',S);}
+
+document.addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
+  if(e.target.tagName==='INPUT') return;
+  if(e.key==='?'){helpModal();return;}
+  if(S.over) return;
+  const f=actMap[e.key.toLowerCase()]; if(f){e.preventDefault();f();}
+});
+
+function start(data){
+  S=(data&&data.S)||fetchStore('applord-save');
+  if(!S||!S.inv||!S.prices) newGame();
+  render();
+  if(S.over&&S.final) {/* show board at rest; end modal available via New career */}
+}
+try{window.claude?.hot?.snapshot?.(()=>({S}));}catch(e){}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
