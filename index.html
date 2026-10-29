@@ -317,6 +317,43 @@ const MISC=[
 ];
 function miscEvent(next){const tot=MISC.reduce((s,m)=>s+m.w,0);let r=Math.random()*tot;for(const m of MISC){if((r-=m.w)<0)return m.fn(next);}next();}
 
+/* ---------- rollback: restored from a two-day-old backup ---------- */
+function snapshot(){
+  S.hist=(S.hist||[]).filter(h=>h.day>=S.day-3);
+  S.hist.push({day:S.day,loc:S.loc,cash:S.cash,inv:{...S.inv},gate:S.gate,cap:S.cap,raci:S.raci,repaid:S.repaid||0});
+}
+function rollbackTarget(){
+  const h=(S.hist||[]).filter(x=>x.day<=S.day-2).pop();
+  if(!h) return null;
+  const changed=h.gate!==S.gate||h.cash!==S.cash||ITEMS.some(i=>h.inv[i.id]!==S.inv[i.id]);
+  return changed?h:null;
+}
+function rollbackEvent(next){
+  const h=rollbackTarget(); if(!h) return next();
+  const refund=(S.repaid||0)-h.repaid;
+  const before={gate:S.gate,cash:S.cash,items:used(),loc:S.loc};
+  const after={gate:h.gate,cash:Math.max(0,h.cash-refund),items:ITEMS.reduce((n,i)=>n+h.inv[i.id],0),loc:h.loc};
+  const lostGates=GATES.slice(h.gate,S.gate).map(g=>g.code);
+  const row=(k,a,b)=>`<tr><td>${k}</td><td>${a}</td><td>${b}</td></tr>`;
+  showModal({title:'RESTORED FROM BACKUP',alert:1,
+    body:`<p>Someone ran the disaster-recovery drill against production. Ops "successfully" restored everything from the backup taken on Day ${h.day}. Two days of your work are gone.</p>
+      <p class="dim">The backup was supposed to be nightly. It was not nightly.</p>
+      <div class="help tablewrap"><table><tr><th></th><th>Before</th><th>Restored</th></tr>
+      ${row('Gates passed',before.gate+'/6',after.gate+'/6')}
+      ${row('Budget',fmt(before.cash),fmt(after.cash))}
+      ${row('Items held',before.items,after.items)}
+      ${row('Location',esc(LOCS[before.loc].name),esc(LOCS[after.loc].name))}
+      </table></div>
+      <p>${lostGates.length?`Your ${lostGates.join(' and ')} approval${lostGates.length>1?'s were':' was'} wiped. You'll have to pass ${lostGates.length>1?'them':'it'} again. `:''}The calendar did not roll back. Neither did Brenda's ledger. Sanity -10.</p>`,
+    buttons:[{label:'Scream into a lanyard',primary:1,fn(){
+      S.cash=after.cash;S.inv={...h.inv};S.gate=h.gate;S.cap=h.cap;S.raci=h.raci;S.repaid=h.repaid+refund;
+      const moved=S.loc!==h.loc;S.loc=h.loc;S.hist=[];
+      if(moved) genPrices();
+      log(`RESTORED FROM BACKUP. Everything is back to how it was on Day ${h.day}${lostGates.length?`, including your ${lostGates.join('/')} approval${lostGates.length>1?'s':''}`:''}. It's still Day ${S.day}.`,'alert');
+      if(moved) log(`Your badge now says you're in ${LOCS[S.loc].name}. You are, apparently.`,'dim');
+      closeModal();damage(10);next();}}]});
+}
+
 function brendaEvent(next){
   log("Brenda from the PMO dropped a 7 a.m. 'debt burndown' meeting on your calendar. The RAG status is red. Everything is red. Sanity -10.",'alert');
   damage(10);next();
@@ -373,6 +410,7 @@ function runQueue(q){
 /* ---------- actions ---------- */
 function travel(i){
   closeModal(); if(S.over||i===S.loc) return;
+  snapshot();
   S.loc=i; advanceDay(); if(S.over) return;
   genPrices();
   log(`== DAY ${S.day} · ${LOCS[i].name.toUpperCase()} ==`,'hdr');
@@ -383,6 +421,7 @@ function travel(i){
   if(Math.random()<.36) q.push(miscEvent);
   if(S.debt>8000&&S.day>8&&Math.random()<.22) q.push(brendaEvent);
   if(S.day>2&&Math.random()<.09) q.push(bingoEvent);
+  if(Math.random()<.05&&rollbackTarget()) q.push(rollbackEvent);
   if(Math.random()<.06+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
   const o=Math.random();
   if(o<.07&&!S.raci) q.push(raciOffer); else if(o<.14) q.push(quotaOffer);
@@ -655,8 +694,8 @@ function pmo(){
       buttons:[
         {label:'Borrow $1k',disabled:room<1000,fn(){S.debt+=1000;S.cash+=1000;log("Borrowed $1,000 from Brenda.");draw("She writes it in a notebook. In pen.");}},
         {label:'Borrow $5k',disabled:room<5000,fn(){S.debt+=5000;S.cash+=5000;log("Borrowed $5,000 from Brenda.");draw("\"Big plans, huh?\" She smiles. Her eyes don't.");}},
-        {label:'Repay $1k',disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(1000,S.debt,S.cash);S.debt-=a;S.cash-=a;log(`Repaid ${fmt(a)} to the PMO.`);draw("She crosses out a line. Barely.");}},
-        {label:'Repay all',primary:1,disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(S.debt,S.cash);S.debt-=a;S.cash-=a;log(`Repaid ${fmt(a)} to the PMO.${S.debt===0?' You are free. For now.':''}`);draw(S.debt===0?"\"Pleasure doing business.\" She updates your status to green.":"Partial payment. She's not mad. She's disappointed.");}},
+        {label:'Repay $1k',disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(1000,S.debt,S.cash);S.debt-=a;S.cash-=a;S.repaid=(S.repaid||0)+a;log(`Repaid ${fmt(a)} to the PMO.`);draw("She crosses out a line. Barely.");}},
+        {label:'Repay all',primary:1,disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(S.debt,S.cash);S.debt-=a;S.cash-=a;S.repaid=(S.repaid||0)+a;log(`Repaid ${fmt(a)} to the PMO.${S.debt===0?' You are free. For now.':''}`);draw(S.debt===0?"\"Pleasure doing business.\" She updates your status to green.":"Partial payment. She's not mad. She's disappointed.");}},
         {label:'Leave',fn(){closeModal();render();save();}}
       ]});
   };
@@ -748,6 +787,7 @@ function helpModal(){
     </table></div>
     <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
     <p>Pass REQ and you'll be dragged into a 30-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
+    <p>Production backups are "nightly". If Ops runs a recovery drill, you can lose the last two days of progress, gates included.</p>
     <p>Watch out for surprise all-hands calls. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
     <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells AI token top-ups. Your AI assistant spends 1k tokens tracking each item you carry, so your token quota caps your stash.</p>
     <p class="dim">Desktop keys: T travel · G submit gate · P PMO · ? help</p>
@@ -816,7 +856,7 @@ function save(){store('applord-save',S);}
 
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey) return;
-  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUICK QUESTION|ALL-HANDS|BINGO/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
+  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUICK QUESTION|ALL-HANDS|BINGO|BACKUP/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
   if(e.target.tagName==='INPUT') return;
   if(e.key==='?'){helpModal();return;}
   if(S.over) return;
