@@ -346,7 +346,7 @@ function rollbackEvent(next){
       </table></div>
       <p>${lostGates.length?`Your ${lostGates.join(' and ')} approval${lostGates.length>1?'s were':' was'} wiped. You'll have to pass ${lostGates.length>1?'them':'it'} again. `:''}The calendar did not roll back. Neither did Brenda's ledger. Sanity -10.</p>`,
     buttons:[{label:'Scream into a lanyard',primary:1,fn(){
-      S.cash=after.cash;S.inv={...h.inv};S.gate=h.gate;S.cap=h.cap;S.raci=h.raci;S.repaid=h.repaid+refund;
+      S.rolledBack=true;S.cash=after.cash;S.inv={...h.inv};S.gate=h.gate;S.cap=h.cap;S.raci=h.raci;S.repaid=h.repaid+refund;
       const moved=S.loc!==h.loc;S.loc=h.loc;S.hist=[];
       if(moved) genPrices();
       log(`RESTORED FROM BACKUP. Everything is back to how it was on Day ${h.day}${lostGates.length?`, including your ${lostGates.join('/')} approval${lostGates.length>1?'s':''}`:''}. It's still Day ${S.day}.`,'alert');
@@ -421,7 +421,7 @@ function travel(i){
   if(Math.random()<.36) q.push(miscEvent);
   if(S.debt>8000&&S.day>8&&Math.random()<.22) q.push(brendaEvent);
   if(S.day>2&&Math.random()<.09) q.push(bingoEvent);
-  if(Math.random()<.05&&rollbackTarget()) q.push(rollbackEvent);
+  if(!S.rolledBack&&Math.random()<.05&&rollbackTarget()) q.push(rollbackEvent);
   if(Math.random()<.06+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
   const o=Math.random();
   if(o<.07&&!S.raci) q.push(raciOffer); else if(o<.14) q.push(quotaOffer);
@@ -778,6 +778,11 @@ function travelModal(){
   box.querySelector('[data-i]').addEventListener('click',closeModal);
   $('#modal').hidden=false;box.querySelector('[data-loc]:not(:disabled)').focus();
 }
+function restartPrompt(){
+  showModal({title:'RESIGN AND START OVER?',
+    body:`<p>You'll hand in your badge on Day ${S.day} with ${S.gate} of 6 gates passed. This run is gone for good and won't count toward the hall of fame.</p><p class="dim">Brenda will find you in your next career too.</p>`,
+    buttons:[{label:'Restart',primary:1,fn(){closeModal();newGame();render();save();}},{label:'Keep playing',fn(){closeModal();}}]});
+}
 function helpModal(){
   showModal({title:'THE PLAYBOOK',body:`<div class="help">
     <p>You have 30 business days to get your app into production at Consolidated Mutual. Every trip between silos costs a day. PMO debt grows 5% a day.</p>
@@ -787,10 +792,10 @@ function helpModal(){
     </table></div>
     <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
     <p>Pass REQ and you'll be dragged into a 30-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
-    <p>Production backups are "nightly". If Ops runs a recovery drill, you can lose the last two days of progress, gates included.</p>
+    <p>Production backups are "nightly". If Ops runs a recovery drill, you can lose the last two days of progress, gates included. It only happens once per game.</p>
     <p>Watch out for surprise all-hands calls. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
     <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells AI token top-ups. Your AI assistant spends 1k tokens tracking each item you carry, so your token quota caps your stash.</p>
-    <p class="dim">Desktop keys: T travel · G submit gate · P PMO · ? help</p>
+    <p class="dim">Desktop keys: T travel · G submit gate · P PMO · R restart · ? help</p>
     <p class="label">Hall of fame (this device)</p>${scoresHtml()}</div>`,
     buttons:[{label:'Got it',primary:1,fn(){closeModal();}},{label:'Start over',fn(){closeModal();newGame();render();save();}}]});
 }
@@ -844,11 +849,14 @@ function render(){
   const a=$('#actions');
   a.innerHTML=acts.map((x,i)=>`<button type="button" data-a="${i}" class="${x.primary?'primary':''}" ${dis?'disabled':''}><kbd>${x.k}</kbd>${esc(x.label)}</button>`).join('')+
     (S.over?`<button type="button" class="primary" id="b-new">New career</button>`:'')+
-    `<button type="button" id="b-help" aria-label="Help"><kbd>?</kbd>Playbook</button>`;
+    `<button type="button" id="b-help" aria-label="Help"><kbd>?</kbd>Playbook</button>`+
+    (S.over?'':`<button type="button" id="b-restart"><kbd>R</kbd>Restart</button>`);
   a.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>acts[+b.dataset.a].fn());
   $('#b-help').onclick=helpModal;
+  if(!S.over) $('#b-restart').onclick=restartPrompt;
   if(S.over) $('#b-new').onclick=()=>{newGame();render();save();};
   actMap=Object.fromEntries(acts.map(x=>[x.k.toLowerCase(),x.fn]));
+  actMap.r=restartPrompt;
 }
 let actMap={};
 

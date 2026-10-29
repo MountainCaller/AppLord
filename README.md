@@ -8,6 +8,6 @@ Trade enterprise contraband (Jira tickets, Visio diagrams, Excel macros, firewal
 
 Open `index.html` in any browser. It's a single self-contained file. Progress and the hall of fame are saved to your browser's local storage.
 
-Desktop keys: `T` travel · `G` submit gate · `P` PMO · `?` playbook.
+Desktop keys: `T` travel · `G` submit gate · `P` PMO · `R` restart · `?` playbook.
 
 *A work of fiction. Any resemblance to your employer is your employer's problem.*
