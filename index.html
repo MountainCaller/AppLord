@@ -312,6 +312,15 @@ const MISC=[
     if(q<=0)return next();S.inv[it.id]+=q;log(`You find ${q} ${it.name} in a decommissioned SharePoint site. Finders keepers.`);next();}},
   {w:4,fn(next){const held=ITEMS.filter(i=>S.inv[i.id]>1);if(!held.length)return next();const it=pick(held);const lost=Math.ceil(S.inv[it.id]*.4);S.inv[it.id]-=lost;
     log(`REORG! Your team now reports to Marketing. ${lost} of your ${it.name} were 'sunset' in the transition.`,'alert');next();}},
+  {w:6,fn(next){const amt=Math.min(200,S.cash);S.cash-=amt;
+    const t=pick([
+      "AI EFFICIENCY INITIATIVE: Everyone must log 3 hours a week of \"AI-assisted productivity gains\". Your cost center is charged $200 for an AI seat that InfoSec has blocked.",
+      "The AI Efficiency Office (headcount: 40) needs to know how many hours AI saved you this quarter. Estimating it takes 4 hours. They charge you $200 for the dashboard that shows the result.",
+      "Your manager asks you to \"use AI to be 30% more efficient\" and to prove it in a 12-tab spreadsheet. The approved AI tool costs $200 and summarizes every email as \"Several people want things.\"",
+      "Mandatory 90-minute webinar: \"How AI Will Give You Back Time.\" There's a $200 enablement fee. The presenter's AI-generated slides have a slide titled \"Lorem Ipsum Synergy.\"",
+      "An AI agent \"optimized\" your calendar by accepting every meeting invite since 2021. The $200 agent license comes out of your budget. The agent has also scheduled a sync with itself."
+    ]);
+    log(`${t} Sanity -8. Your will to live has been automated away.`,'alert');damage(8);next();}},
   {w:5,fn(next){S.sanity=Math.min(100,S.sanity+10);log("Free pizza in the break room. It's pineapple, but you are in no position to judge. Sanity +10.");next();}},
   {w:6,fn(next){log("Your manager wants a 'quick sync'. It's 75 minutes and none of it is about you. Sanity -8.",'alert');damage(8);next();}},
   {w:5,fn(next){log("Reply-all apocalypse: 3,000 people reply 'please remove me from this list'. Sanity -6.",'alert');damage(6);next();}},
