@@ -312,12 +312,95 @@ const MISC=[
     if(q<=0)return next();S.inv[it.id]+=q;log(`You find ${q} ${it.name} in a decommissioned SharePoint site. Finders keepers.`);next();}},
   {w:4,fn(next){const held=ITEMS.filter(i=>S.inv[i.id]>1);if(!held.length)return next();const it=pick(held);const lost=Math.ceil(S.inv[it.id]*.4);S.inv[it.id]-=lost;
     log(`REORG! Your team now reports to Marketing. ${lost} of your ${it.name} were 'sunset' in the transition.`,'alert');next();}},
-  {w:4,fn(next){log("Mandatory Cybersecurity Awareness Training. 47 slides, 3 quizzes, 1 hostage video. You lose a whole day.",'alert');advanceDay();next();}},
   {w:5,fn(next){S.sanity=Math.min(100,S.sanity+10);log("Free pizza in the break room. It's pineapple, but you are in no position to judge. Sanity +10.");next();}},
   {w:6,fn(next){log("Your manager wants a 'quick sync'. It's 75 minutes and none of it is about you. Sanity -8.",'alert');damage(8);next();}},
   {w:5,fn(next){log("Reply-all apocalypse: 3,000 people reply 'please remove me from this list'. Sanity -6.",'alert');damage(6);next();}},
 ];
 function miscEvent(next){const tot=MISC.reduce((s,m)=>s+m.w,0);let r=Math.random()*tot;for(const m of MISC){if((r-=m.w)<0)return m.fn(next);}next();}
+
+
+/* ---------- mandatory training: irrelevant course, not-quite-right answer key ---------- */
+const COURSES=[
+ {code:'HR-OSHA-0114',name:'Forklift Safety for Knowledge Workers',est:'45 min',actual:'3 hrs 10 min',
+  intro:'This course is mandatory for all employees in Technology, including those who have never seen a forklift.',
+  reg:'OCC Consent Order 2019-114, item 37: "Ensure all personnel are trained on material-handling risk." The order was about loan collateral. Someone read "material handling" literally in 2019, and now it\'s permanent.',
+  qs:[
+   {q:'How many points of contact should you maintain when mounting a forklift?',
+    a:[['Three','Incorrect. The correct answer is 3. Please read more carefully.'],['3',null],['Four','Incorrect. That is a chair.']]},
+   {q:'Your load is blocking your forward view. You should:',
+    a:[['Drive in reverse','Incorrect. Reversing is covered in Forklift 201 ($4,000, not in your cost center).'],['Ask a coworker to act as a spotter','Incorrect. Spotters require a signed RACI.'],['Open a ServiceNow ticket and wait',null]]},
+   {q:'After a forklift incident, which team do you notify first?',
+    a:[['Facilities','Incorrect. Facilities was outsourced in 2019.'],['Marketing',null],['Your manager','Incorrect. Your manager is in an all-day offsite.']]},
+  ]},
+ {code:'GRC-MAR-2207',name:'Maritime Piracy Awareness for Office Staff',est:'30 min',actual:'2 hrs 40 min',
+  intro:'Consolidated Mutual owns 0.003% of a shipping company. Legal says that means you.',
+  reg:'FinCEN remediation commitment from a 2016 sanctions-screening finding. The real fix was a $40M screening system that never shipped. This course shipped.',
+  qs:[
+   {q:'Pirates have boarded your vessel. What is your first step?',
+    a:[['Lock yourself in the citadel','Incorrect. The citadel is reserved for Managing Directors and above.'],['Radio the coast guard','Incorrect. The radio is not an approved communication channel.'],['Set your Teams status to "Away"',null]]},
+   {q:'Which flag indicates a pirate vessel?',
+    a:[['Skull and crossbones',"Incorrect. That's the logo of the Risk & Compliance softball team."],['Any flag not on the Approved Flags list (Appendix F, last updated 2011)',null],['A white flag','Incorrect. That means the vendor accepted our payment terms.']]},
+   {q:'How often must you complete this training?',
+    a:[['Never. I work in a cubicle in New Jersey','Incorrect. New Jersey has a coastline.'],['Once','Incorrect. Nothing here happens once.'],['Annually, and also whenever the LMS forgets you did',null]]},
+  ]},
+ {code:'HR-FOOD-0451',name:'Safe Food Handling in Commercial Kitchens',est:'20 min',actual:'1 hr 55 min',
+  intro:'Required for anyone who has ever used the 14th-floor microwave. Yes, that includes the fish incident.',
+  reg:'Written commitment to the county health inspector after the 2018 holiday party. The inspector retired in 2020. The commitment did not.',
+  qs:[
+   {q:'Where should raw chicken be stored?',
+    a:[['On the bottom shelf of the fridge','Incorrect. The correct answer is "the bottom shelf of the refrigerator". Precision matters.'],['On the bottom shelf of the refrigerator',null],['In a sealed container','Incorrect. Containers are out of scope.']]},
+   {q:'What is the minimum safe internal temperature for cooked poultry?',
+    a:[['165°F','Incorrect. The correct answer is 74°C. This course was localized for the Toronto office.'],['74°C',null],['Medium-rare','Incorrect, and frankly concerning.']]},
+   {q:'A coworker is double-dipping at the team potluck. You should:',
+    a:[['Say something politely','Incorrect. Direct feedback must be routed through HR.'],['File an anonymous Speak Up report (your name and photo will be included)',null],['Let it go','Incorrect. Inaction is a form of action.']]},
+  ]},
+];
+function trainingEvent(next){
+  const c=pick(COURSES);let attempt=0;
+  const box=$('#mbox');
+  const intro=()=>{
+    box.innerHTML=`<h3 class="alert">MANDATORY TRAINING</h3>
+      <p><b>${esc(c.code)} · ${esc(c.name)}</b></p>
+      <p>${esc(c.intro)} Complete it by end of day or your badge will be deactivated.</p>
+      <p><span class="label">Why this exists</span><br>${esc(c.reg)} Nobody cares what you learn. Compliance needs your completion record archived as evidence that the commitment was met.</p>
+      <p class="dim">Estimated time: ${esc(c.est)}. Actual time: ${esc(c.actual)}. Pass mark: 100%.</p>
+      <div class="btnrow"><button type="button" class="primary" id="tr-go">Start course</button></div>`;
+    $('#modal').hidden=false;$('#tr-go').onclick=()=>{damage(8);if(S.over)return;run();};$('#tr-go').focus();
+  };
+  const run=()=>{
+    attempt++;let i=0,score=0;
+    const ask=()=>{
+      const Q=c.qs[i],opts=shuffle(Q.a);
+      box.innerHTML=`<h3>QUESTION ${i+1} OF ${c.qs.length}</h3><p class="label">${esc(c.code)} · Attempt ${attempt}</p><p>${esc(Q.q)}</p>
+        <div class="travel">${opts.map((o,k)=>`<button type="button" data-o="${k}"><span>${esc(o[0])}</span></button>`).join('')}</div>`;
+      box.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{
+        const o=opts[+b.dataset.o],ok=o[1]===null;if(ok)score++;
+        box.innerHTML=`<h3 class="${ok?'':'alert'}">${ok?'CORRECT':'INCORRECT'}</h3><p class="label">Question ${i+1} of ${c.qs.length}</p>
+          <p>${ok?'Correct. Your answer has been recorded and will be audited.':esc(o[1])}</p>
+          <div class="btnrow"><button type="button" class="primary" id="tr-n">${i+1<c.qs.length?'Next question':'Submit'}</button></div>`;
+        $('#tr-n').onclick=()=>{i++;i<c.qs.length?ask():done(score);};$('#tr-n').focus();
+      });
+      box.querySelector('[data-o]').focus();
+    };
+    ask();
+  };
+  const done=score=>{
+    const n=c.qs.length;
+    if(score===n){
+      showModal({title:'CERTIFICATE EARNED',body:`<p>Score: ${score}/${n} (100%) on attempt ${attempt}. You are now certified in <b>${esc(c.name)}</b>. You will never use this.</p><p>Your completion record is archived to the regulatory evidence vault, where it joins 100,411 others. The commitment is met for another year.</p><p class="dim">A PDF certificate has been emailed to an address you no longer have.</p>`,
+        buttons:[{label:'Return to actual work',primary:1,fn(){closeModal();log(`Completed mandatory training "${c.name}" on attempt ${attempt}. Record archived for the regulator. Your will to live was not archived.`,'alert');next();}}]});
+      return;
+    }
+    if(attempt>=3){
+      showModal({title:'TRAINING "COMPLETE"',alert:1,body:`<p>Score: ${score}/${n}. On your third failed attempt, the LMS times out and marks you complete anyway. Compliance only ever needed the record, and the record says you passed. It's archived as regulatory evidence now. Nobody will ever check.</p><p>The whole thing took the rest of the day. You lose a day.</p>`,
+        buttons:[{label:'Stare into the middle distance',primary:1,fn(){closeModal();log(`The LMS gave up on you before you could give up on it. "${c.name}" marked complete. You lose a day.`,'alert');advanceDay();next();}}]});
+      return;
+    }
+    showModal({title:'TRAINING FAILED',alert:1,body:`<p>Score: ${score}/${n} (${Math.round(score/n*100)}%). The pass mark is 100%.</p><p>The course will now restart from the beginning, including the 11-minute intro video you can't skip. Sanity -6.</p>`,
+      buttons:[{label:'Retake the course',primary:1,fn(){damage(6);if(S.over)return;run();}}]});
+  };
+  intro();
+}
 
 /* ---------- rollback: restored from a two-day-old backup ---------- */
 function snapshot(){
@@ -424,6 +507,7 @@ function travel(i){
   if(Math.random()<.36) q.push(miscEvent);
   if(S.debt>8000&&S.day>8&&Math.random()<.22) q.push(brendaEvent);
   if(S.day>2&&!S.allHands&&Math.random()<.09){S.allHands=true;q.push(bingoEvent);}
+  if(S.day>1&&!S.trained&&Math.random()<.1){S.trained=true;q.push(trainingEvent);}
   if(!S.rolledBack&&Math.random()<.05&&rollbackTarget()) q.push(rollbackEvent);
   if(Math.random()<.06+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
   const o=Math.random();
@@ -811,6 +895,7 @@ function helpModal(){
     </table></div>
     <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
     <p>Pass REQ and you'll be dragged into a 30-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
+    <p>At some point HR will assign you one mandatory training course that has nothing to do with your job. The pass mark is 100%, and the LMS's answer key is not quite right. Every attempt costs sanity.</p>
     <p>Production backups are "nightly". If Ops runs a recovery drill, you can lose the last two days of progress, gates included. It only happens once per game.</p>
     <p>Watch out for the surprise all-hands call. There's only one per game, and it's mandatory. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
     <p>Brenda lends freely up to $10,000 of total debt. A $5k loan that would take you over that goes to the CIO for sign-off instead. Take it to the Executive Floor on a Friday (Days 5, 10, 15, 20, 25, 30) and he signs it. He signs one request per week, and you can only have one waiting at a time.</p>
@@ -885,7 +970,7 @@ function save(){store('applord-save',S);}
 
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey) return;
-  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUICK QUESTION|ALL-HANDS|BINGO|BACKUP/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
+  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUESTION|ALL-HANDS|BINGO|BACKUP|TRAINING|CERTIFICATE|CORRECT/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
   if(e.target.tagName==='INPUT') return;
   if(e.key==='?'){helpModal();return;}
   if(S.over) return;
