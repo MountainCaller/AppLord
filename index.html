@@ -501,7 +501,7 @@ function runBingo(next){
     <div class="bhud"><span class="label">● Live transcript</span><span id="b-time">0:30</span></div>
     <div class="transcript" id="b-tr" aria-live="polite"><div class="dim">Waiting for the CEO to find the unmute button…</div></div>
     <div class="bcard" id="b-card">${card.map((w,i)=>`<button type="button" data-b="${i}">${esc(w)}</button>`).join('')}</div>
-    <p class="dim" id="b-msg">Marked 0 of 9.</p>`;
+    <p class="dim" id="b-msg">Marked 0 of 9. Three in a row, column or diagonal wins.</p>`;
   const tr=$('#b-tr'),msgEl=$('#b-msg'),btns=[...box.querySelectorAll('[data-b]')];
   const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
   function say(){
@@ -510,8 +510,9 @@ function runBingo(next){
       const unsaid=card.filter(c=>!said.has(c)&&!words.includes(c));
       words.push(unsaid.length&&Math.random()<.25?pick(unsaid):pick(BUZZ.filter(b=>!words.includes(b))));
     }
-    words.forEach(w=>said.add(w));
     const text=tpl.replace(/\{(\d)\}/g,(_,i)=>words[+i].toLowerCase());
+    const low=text.toLowerCase();
+    BUZZ.forEach(b=>{if(low.includes(b.toLowerCase()))said.add(b);});
     if(tr.firstElementChild&&tr.firstElementChild.classList.contains('dim')&&tr.children.length===1)tr.innerHTML='';
     const d=document.createElement('div');d.className='new';
     d.innerHTML=`<span class="sp">${esc(pick(SPEAKERS))}:</span>${esc(text)}`;
@@ -523,11 +524,11 @@ function runBingo(next){
     if(marked.has(i))return;
     if(said.has(w)){
       marked.add(i);b.classList.remove('miss');b.classList.add('on');b.setAttribute('aria-pressed','true');
-      msgEl.textContent=`Marked ${marked.size} of 9.`;
+      msgEl.textContent=`Marked ${marked.size} of 9. Three in a row, column or diagonal wins.`;
       const hit=LINES.find(L=>L.every(j=>marked.has(j)));
       if(hit){hit.forEach(j=>btns[j].classList.add('win'));finish(true);}
     } else {
-      wrong++;b.classList.add('miss');
+      wrong++;b.classList.add('miss');setTimeout(()=>b.classList.remove('miss'),1200);
       msgEl.textContent=`"${w}" hasn't been said yet. The CEO pauses: "Is someone typing?" (${wrong} slip${wrong>1?'s':''})`;
     }
   }));
