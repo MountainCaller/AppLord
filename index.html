@@ -423,7 +423,7 @@ function travel(i){
   if(Math.random()<.28) q.push(marketEvent);
   if(Math.random()<.36) q.push(miscEvent);
   if(S.debt>8000&&S.day>8&&Math.random()<.22) q.push(brendaEvent);
-  if(S.day>2&&Math.random()<.09) q.push(bingoEvent);
+  if(S.day>2&&!S.allHands&&Math.random()<.09){S.allHands=true;q.push(bingoEvent);}
   if(!S.rolledBack&&Math.random()<.05&&rollbackTarget()) q.push(rollbackEvent);
   if(Math.random()<.06+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
   const o=Math.random();
@@ -812,7 +812,7 @@ function helpModal(){
     <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
     <p>Pass REQ and you'll be dragged into a 30-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
     <p>Production backups are "nightly". If Ops runs a recovery drill, you can lose the last two days of progress, gates included. It only happens once per game.</p>
-    <p>Watch out for surprise all-hands calls. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
+    <p>Watch out for the surprise all-hands call. There's only one per game, and it's mandatory. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
     <p>Brenda lends freely up to $10,000 of total debt. A $5k loan that would take you over that goes to the CIO for sign-off instead. Take it to the Executive Floor on a Friday (Days 5, 10, 15, 20, 25, 30) and he signs it. He signs one request per week, and you can only have one waiting at a time.</p>
     <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells AI token top-ups. Your AI assistant spends 1k tokens tracking each item you carry, so your token quota caps your stash.</p>
     <p class="dim">Desktop keys: T travel · G submit gate · P PMO · C CIO · Q give up · ? help</p>
