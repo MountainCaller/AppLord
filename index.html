@@ -149,6 +149,11 @@ footer{color:var(--dim);font-size:11.5px;text-align:center}
 .transcript{height:8em;overflow-y:auto;border:1px solid var(--faint);background:var(--bg);padding:8px 10px;font-size:12.5px;display:flex;flex-direction:column;gap:5px}
 .transcript .sp{color:var(--dim);margin-right:6px}
 .transcript div.new{animation:in .35s ease-out}
+.mail{display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow-y:auto;border:1px solid var(--faint);background:var(--bg);padding:10px}
+.mail .m{display:flex;flex-direction:column;gap:2px;padding-bottom:8px;border-bottom:1px dashed var(--faint)}
+.mail .m:last-child{border-bottom:0;padding-bottom:0}
+.mail .h{font-size:11px;color:var(--dim);letter-spacing:.04em}
+.mail .b{font-size:13px}
 .bcard{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .bcard button{min-height:60px;padding:6px;text-transform:none;letter-spacing:0;font-size:13.5px;line-height:1.15;overflow-wrap:anywhere;hyphens:auto}
 .bcard button.on{background:var(--amber);color:var(--ink);border-color:var(--amber)}
@@ -411,6 +416,34 @@ function trainingEvent(next){
   intro();
 }
 
+
+/* ---------- cyber event: the exec reply-all data call ---------- */
+function cyberEvent(next){
+  const cve=`CVE-2026-${ri(20000,49999)}`;
+  const M=[
+    ['CISO','All Technology (100,412 recipients)','6:02 AM',`A critical vulnerability (${cve}) in a widely used open-source logging library is being actively exploited. App owners: confirm within 1 hour whether you are affected.`],
+    ['EVP, Retail Banking','Reply all','6:19 AM','Adding my leadership team. Do we use open source? I thought we paid for everything.'],
+    ['SVP, Strategy & Transformation','Reply all','6:47 AM','+1. Taking a step back: where do we use code? Can someone send me a list of all the code?'],
+    ['Chief Risk Officer','Reply all','7:05 AM',"Let's be careful not to say we use code until Legal has reviewed whether we use code."],
+    ['CIO','Reply all','7:31 AM','Great question. Spinning up a tiger team. Every app owner: complete the attached inventory (47 columns, 9 tabs) by EOD. List every place your app uses code. Include code you are not using, in case it is.'],
+    ['Chief of Staff to the COO','Reply all','7:58 AM','Please remove me from this thread.'],
+    ['Chief of Staff to the COO','Reply all','7:59 AM','Please remove me from this thread.'],
+  ];
+  showModal({title:'URGENT: WHERE DO WE USE CODE?',alert:1,
+    body:`<p class="label">RE: RE: FW: URGENT: ${esc(cve)} · ${M.length} messages</p>
+      <div class="mail">${M.map(m=>`<div class="m"><span class="h">${esc(m[0])} → ${esc(m[1])} · ${esc(m[2])}</span><span class="b">${esc(m[3])}</span></div>`).join('')}</div>`,
+    buttons:[{label:'Open the 47-column spreadsheet',primary:1,fn(){
+      showModal({title:'THE DATA CALL',alert:1,
+        body:`<p>You spend two full days listing every file, function and semicolon in your app across 9 tabs. Halfway through, the template changes to version 4, and none of your entries carry over.</p>
+          <p>Your app doesn't use the library. It never did. You submit the spreadsheet to a SharePoint folder with 1,900 other spreadsheets. Nobody opens it.</p>
+          <p>The SVP thanks the tiger team for "finding all the code." You lose 2 days. Sanity -10.</p>`,
+        buttons:[{label:'Reply all: "Not affected"',primary:1,fn(){
+          closeModal();
+          log(`Exec reply-all data call for ${cve}: "Where do we use code?" Two days filling in a 47-column spreadsheet to say your app isn't affected. Sanity -10.`,'alert');
+          advanceDay();if(!S.over)advanceDay();if(!S.over)damage(10);next();}}]});
+    }}]});
+}
+
 /* ---------- rollback: restored from a two-day-old backup ---------- */
 function snapshot(){
   S.hist=(S.hist||[]).filter(h=>h.day>=S.day-3);
@@ -517,6 +550,7 @@ function travel(i){
   if(S.debt>8000&&S.day>8&&Math.random()<.22) q.push(brendaEvent);
   if(S.day>2&&!S.allHands&&Math.random()<.09){S.allHands=true;q.push(bingoEvent);}
   if(S.day>1&&!S.trained&&Math.random()<.1){S.trained=true;q.push(trainingEvent);}
+  if(S.day>2&&!S.cyber&&Math.random()<.07){S.cyber=true;q.push(cyberEvent);}
   if(!S.rolledBack&&Math.random()<.05&&rollbackTarget()) q.push(rollbackEvent);
   if(Math.random()<.06+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
   const o=Math.random();
@@ -979,7 +1013,7 @@ function save(){store('applord-save',S);}
 
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey) return;
-  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUESTION|ALL-HANDS|BINGO|BACKUP|TRAINING|CERTIFICATE|CORRECT/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
+  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUESTION|ALL-HANDS|BINGO|BACKUP|TRAINING|CERTIFICATE|CORRECT|URGENT|DATA CALL/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
   if(e.target.tagName==='INPUT') return;
   if(e.key==='?'){helpModal();return;}
   if(S.over) return;
