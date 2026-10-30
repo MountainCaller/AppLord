@@ -184,7 +184,7 @@ footer{color:var(--dim);font-size:11.5px;text-align:center}
 
 <script>
 (function(){
-const MAXDAY=30, INTEREST=0.05, DEBT_CAP=40000, CAP_MAX=250;
+const MAXDAY=30, INTEREST=0.05, CREDIT=10000, CAP_MAX=250;
 const ITEMS=[
   {id:'jira',  name:'Jira Tickets',    lo:8,    hi:45},
   {id:'visio', name:'Visio Diagrams',  lo:40,   hi:180},
@@ -257,7 +257,7 @@ const locIdx=id=>LOCS.findIndex(l=>l.id===id);
 const used=()=>ITEMS.reduce((s,i)=>s+S.inv[i.id],0);
 const isCab=d=>d%5===2;
 const isFri=d=>d%5===0;
-const nextFri=()=>{for(let d=S.day;d<=MAXDAY;d++) if(isFri(d)&&S.cioDay!==d) return d; return null;};
+const nextFri=()=>{for(let d=S.day;d<=MAXDAY;d++) if(isFri(d)) return d; return null;};
 const nextCab=()=>{for(let d=S.day;d<=MAXDAY;d++) if(isCab(d)) return d; return null;};
 const sketchyUnits=()=>ITEMS.filter(i=>i.sketchy).reduce((s,i)=>s+S.inv[i.id],0);
 
@@ -269,7 +269,7 @@ function fetchStore(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v
 function log(t,c){S.log.push({t,c:c||''});if(S.log.length>80)S.log.splice(0,S.log.length-80);newLines++;}
 
 function newGame(){
-  S={day:1,loc:0,cash:5000,debt:5000,limit:10000,sanity:100,cap:100,raci:false,gate:0,
+  S={day:1,loc:0,cash:5000,debt:5000,cioReq:0,sanity:100,cap:100,raci:false,gate:0,
      inv:Object.fromEntries(ITEMS.map(i=>[i.id,0])),prices:{},hotItem:null,log:[],over:false,result:null};
   genPrices();
   log('== DAY 1 · CUBICLE FARM ==','hdr');
@@ -418,7 +418,7 @@ function travel(i){
   log(`== DAY ${S.day} · ${LOCS[i].name.toUpperCase()} ==`,'hdr');
   log(pick(LOCS[i].flavor),'dim');
   if(isCab(S.day)) log("It's Tuesday. CAB is in session in Conference Room 7B.",'dim');
-  if(isFri(S.day)) log("It's Friday. The CIO is on the Executive Floor signing things between golf and lunch.",'dim');
+  if(isFri(S.day)) log(`It's Friday. The CIO is on the Executive Floor signing things between golf and lunch.${S.cioReq?` Your ${fmt(S.cioReq)} funding request is in his inbox.`:''}`,S.cioReq?'alert':'dim');
   const q=[];
   if(Math.random()<.28) q.push(marketEvent);
   if(Math.random()<.36) q.push(miscEvent);
@@ -689,15 +689,20 @@ function meetingResult(kind,plus,slide){
 
 function pmo(){
   const draw=(msg)=>{
-    const lim=Math.min(DEBT_CAP,S.limit||10000),room=Math.max(0,lim-S.debt);
-    if(!msg&&room<1000&&lim<DEBT_CAP){const nf=nextFri();msg=`"Anything over ${fmt(lim)} needs CIO sign-off, hon. He only signs on Fridays, up on the Executive Floor.${nf?` Next Friday is Day ${nf}.`:' Too bad there are no Fridays left.'}"`;}
+    const room=Math.max(0,CREDIT-S.debt),nf=nextFri();
+    const friTxt=nf?(nf===S.day?'That\'s today, so hurry.':`Next Friday is Day ${nf}.`):'Too bad there are no Fridays left.';
+    if(!msg&&S.cioReq) msg=`"Your ${fmt(S.cioReq)} is sitting in the CIO's inbox, hon. He signs on Fridays, up on the Executive Floor. ${friTxt}"`;
     showModal({title:'BRENDA FROM THE PMO',
       body:`<p>Brenda looks up from a Gantt chart the size of a bedsheet. "Need funding, hon? I charge 5%. Per day. Compounding. Like a friend would."</p>
             ${msg?`<p>${esc(msg)}</p>`:''}
-            <p class="dim">You owe ${fmt(S.debt)} · Budget ${fmt(S.cash)} · Credit limit ${fmt(lim)} · Left ${fmt(room)}</p>`,
+            <p class="dim">You owe ${fmt(S.debt)} · Budget ${fmt(S.cash)} · Credit limit ${fmt(CREDIT)} · Left ${fmt(room)}${S.cioReq?` · ${fmt(S.cioReq)} awaiting CIO`:''}</p>`,
       buttons:[
         {label:'Borrow $1k',disabled:room<1000,fn(){S.debt+=1000;S.cash+=1000;log("Borrowed $1,000 from Brenda.");draw("She writes it in a notebook. In pen.");}},
-        {label:'Borrow $5k',disabled:room<5000,fn(){S.debt+=5000;S.cash+=5000;log("Borrowed $5,000 from Brenda.");draw("\"Big plans, huh?\" She smiles. Her eyes don't.");}},
+        {label:S.cioReq?'$5k pending CIO':'Borrow $5k',disabled:!!S.cioReq,fn(){
+          if(room>=5000){S.debt+=5000;S.cash+=5000;log("Borrowed $5,000 from Brenda.");return draw("\"Big plans, huh?\" She smiles. Her eyes don't.");}
+          S.cioReq=5000;
+          log(`Brenda sent your $5,000 request up to the CIO. It puts you over the ${fmt(CREDIT)} limit, so he has to sign it. He only signs on Fridays, on the Executive Floor. ${friTxt}`,'alert');
+          draw(`"Ooh, that takes you over ${fmt(CREDIT)}. I'll need the CIO's John Hancock on this one." She stamps it PENDING with real joy. "He signs on Fridays, up on the Executive Floor. ${friTxt}"`);}},
         {label:'Repay $1k',disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(1000,S.debt,S.cash);S.debt-=a;S.cash-=a;S.repaid=(S.repaid||0)+a;log(`Repaid ${fmt(a)} to the PMO.`);draw("She crosses out a line. Barely.");}},
         {label:'Repay all',primary:1,disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(S.debt,S.cash);S.debt-=a;S.cash-=a;S.repaid=(S.repaid||0)+a;log(`Repaid ${fmt(a)} to the PMO.${S.debt===0?' You are free. For now.':''}`);draw(S.debt===0?"\"Pleasure doing business.\" She updates your status to green.":"Partial payment. She's not mad. She's disappointed.");}},
         {label:'Leave',fn(){closeModal();render();save();}}
@@ -706,13 +711,12 @@ function pmo(){
   draw();
 }
 function cio(){
-  const lim=S.limit||10000;
-  if(lim>=DEBT_CAP){log(`The CIO already approved the maximum. "${fmt(DEBT_CAP)} is plenty. That's what I paid for my driveway."`,'alert');return render();}
+  if(!S.cioReq){log("The CIO's assistant checks his inbox. There's nothing from you to sign. Ask Brenda for a $5k loan first.",'alert');return render();}
   if(!isFri(S.day)){const nf=nextFri();
     log(`The CIO's assistant blocks the door. "He only signs on Fridays."${nf?` Next Friday: Day ${nf}.`:' There are no Fridays left before the deadline.'}`,'alert');return render();}
   if(S.cioDay===S.day){log("The CIO already signed one thing for you this week. He's not a vending machine.",'alert');return render();}
-  S.cioDay=S.day;S.limit=Math.min(DEBT_CAP,lim+10000);
-  log(`The CIO signs your funding request without reading it, between a tee time and a Gartner call. Brenda's credit limit rises to ${fmt(S.limit)}.`,'win');
+  const amt=S.cioReq;S.cioDay=S.day;S.cioReq=0;S.debt+=amt;S.cash+=amt;
+  log(`The CIO signs your ${fmt(amt)} funding request without reading it, between a tee time and a Gartner call. Brenda releases the money. You now owe ${fmt(S.debt)}.`,'win');
   render();save();
 }
 function latte(){
@@ -793,9 +797,9 @@ function travelModal(){
   $('#modal').hidden=false;box.querySelector('[data-loc]:not(:disabled)').focus();
 }
 function restartPrompt(){
-  showModal({title:'RESIGN AND START OVER?',
+  showModal({title:'GIVE UP?',
     body:`<p>You'll hand in your badge on Day ${S.day} with ${S.gate} of 6 gates passed. This run is gone for good and won't count toward the hall of fame.</p><p class="dim">Brenda will find you in your next career too.</p>`,
-    buttons:[{label:'Restart',primary:1,fn(){closeModal();newGame();render();save();}},{label:'Keep playing',fn(){closeModal();}}]});
+    buttons:[{label:'Give up',primary:1,fn(){closeModal();newGame();render();save();}},{label:'Keep playing',fn(){closeModal();}}]});
 }
 function helpModal(){
   showModal({title:'THE PLAYBOOK',body:`<div class="help">
@@ -808,9 +812,9 @@ function helpModal(){
     <p>Pass REQ and you'll be dragged into a 30-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
     <p>Production backups are "nightly". If Ops runs a recovery drill, you can lose the last two days of progress, gates included. It only happens once per game.</p>
     <p>Watch out for surprise all-hands calls. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
-    <p>Brenda only lends up to $10,000 of total debt. Each CIO sign-off raises that limit by $10,000. The CIO signs on the Executive Floor, on Fridays only (Days 5, 10, 15, 20, 25, 30), once per week.</p>
+    <p>Brenda lends freely up to $10,000 of total debt. A $5k loan that would take you over that goes to the CIO for sign-off instead. Take it to the Executive Floor on a Friday (Days 5, 10, 15, 20, 25, 30) and he signs it. He signs one request per week, and you can only have one waiting at a time.</p>
     <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells AI token top-ups. Your AI assistant spends 1k tokens tracking each item you carry, so your token quota caps your stash.</p>
-    <p class="dim">Desktop keys: T travel · G submit gate · P PMO · C CIO · R restart · ? help</p>
+    <p class="dim">Desktop keys: T travel · G submit gate · P PMO · C CIO · Q give up · ? help</p>
     <p class="label">Hall of fame (this device)</p>${scoresHtml()}</div>`,
     buttons:[{label:'Got it',primary:1,fn(){closeModal();}},{label:'Start over',fn(){closeModal();newGame();render();save();}}]});
 }
@@ -822,7 +826,7 @@ function render(){
   $('#status').innerHTML=`
     <div class="stat"><span class="label">Day</span><span class="v ${S.day>=26?'bad':''}">${S.day}/${MAXDAY}</span></div>
     <div class="stat"><span class="label">Budget</span><span class="v">${fmt(S.cash)}</span></div>
-    <div class="stat"><span class="label">PMO debt</span><span class="v ${S.debt>10000?'bad':''}">${fmt(S.debt)}</span></div>
+    <div class="stat"><span class="label">PMO debt${S.cioReq?' · '+fmt(S.cioReq)+' at CIO':''}</span><span class="v ${S.debt>10000?'bad':''}">${fmt(S.debt)}</span></div>
     <div class="stat"><span class="label">AI tokens</span><span class="v">${used()}k/${S.cap}k</span></div>
     <div class="stat wide"><span class="label">Location</span><span class="v">${esc(L.name)}</span></div>
     <div class="stat"><span class="label">Sanity ${S.sanity}</span><span class="bar" aria-label="Sanity ${S.sanity} of 100">${'█'.repeat(bar)}<span class="off">${'░'.repeat(10-bar)}</span></span></div>
@@ -861,18 +865,18 @@ function render(){
   if(S.gate<GATES.length) acts.push({k:'G',label:`Submit ${GATES[S.gate].code}`,fn:submitGate});
   if(L.id==='cube'){acts.push({k:'P',label:'Brenda (PMO)',fn:pmo});acts.push({k:'L',label:'Latte $150',fn:latte});}
   if(L.id==='dc') acts.push({k:'U',label:'Tokens +30k $1,800',fn:usb});
-  if(L.id==='exec') acts.push({k:'C',label:'CIO sign-off',fn:cio});
+  if(L.id==='exec'&&S.cioReq) acts.push({k:'C',label:`CIO sign-off (${fmt(S.cioReq)})`,fn:cio});
   const a=$('#actions');
   a.innerHTML=acts.map((x,i)=>`<button type="button" data-a="${i}" class="${x.primary?'primary':''}" ${dis?'disabled':''}><kbd>${x.k}</kbd>${esc(x.label)}</button>`).join('')+
     (S.over?`<button type="button" class="primary" id="b-new">New career</button>`:'')+
     `<button type="button" id="b-help" aria-label="Help"><kbd>?</kbd>Playbook</button>`+
-    (S.over?'':`<button type="button" id="b-restart"><kbd>R</kbd>Restart</button>`);
+    (S.over?'':`<button type="button" id="b-restart"><kbd>Q</kbd>Give up</button>`);
   a.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>acts[+b.dataset.a].fn());
   $('#b-help').onclick=helpModal;
   if(!S.over) $('#b-restart').onclick=restartPrompt;
   if(S.over) $('#b-new').onclick=()=>{newGame();render();save();};
   actMap=Object.fromEntries(acts.map(x=>[x.k.toLowerCase(),x.fn]));
-  actMap.r=restartPrompt;
+  actMap.q=restartPrompt;
 }
 let actMap={};
 
@@ -890,7 +894,7 @@ document.addEventListener('keydown',e=>{
 function start(data){
   S=(data&&data.S)||fetchStore('applord-save');
   if(!S||!S.inv||!S.prices) newGame();
-  if(S.limit==null) S.limit=10000;
+  if(S.cioReq==null) S.cioReq=0;
   render();
   if(S.over&&S.final) {/* show board at rest; end modal available via New career */}
 }
