@@ -252,11 +252,12 @@ const PERSONAS=[
      S.inv.jira+=j;S.inv.test+=t;log(`"Yeahhh, I'm going to need everyone in this weekend." The team produces ${j} Jira Tickets${t?` and ${t} Test Evidence`:''}.`);
      if(Math.random()<.25) loseStaff("One of them quits by email on Sunday night, effective Sunday night.");}}},
 ];
-const PAYROLL=300, SEVERANCE=1500;
+const PAYROLL=300, SEVERANCE=1500, LIC_CASH=3000, LIC_FINE=5000, LIC_MAX=3;
+const RENEWALS=['the database','the monitoring suite','the diagramming tool nobody admits to using'];
 const NOBODY={id:'',fn:'',name:'',role:'Individual Contributor',plus:[],minus:[]};
 const P=()=>PERSONAS.find(p=>p.id===S.persona)||NOBODY;
 const credit=()=>P().credit||CREDIT;
-const needOf=g=>{const f=P().need;return Object.entries(g.need).map(([k,v])=>[k,f?f(k,v):v]).filter(([,v])=>v>0);};
+const needOf=g=>{const f=P().need;return Object.entries(g.need).map(([k,v])=>[k,(f?f(k,v):v)+(g.code==='PROD'&&k==='oracle'?(S.unlic||0):0)]).filter(([,v])=>v>0);};
 const rewardOf=g=>Math.round(g.reward*(P().reward||1));
 const ITEMS=[
   {id:'jira',  name:'Jira Tickets',    lo:8,    hi:45},
@@ -398,6 +399,34 @@ function fireStaff(){
       if(!S.over) damage(hurt);
       if(!S.over){render();save();}}},
       {label:'Keep them',fn(){closeModal();}}]});
+}
+/* ---------- raising money by not paying a software license ---------- */
+function skipLicense(){
+  const n=S.unlic||0;
+  if(n>=LIC_MAX){log("There are no renewals left to skip. You are already running on expired everything.",'alert');return render();}
+  showModal({title:'SKIP THE RENEWAL?',alert:1,
+    body:`<p>The renewal for ${esc(RENEWALS[n])} is due. If you "lose" the invoice, <b>${fmt(LIC_CASH)}</b> stays in your budget.</p>
+      <p>Every unpaid license makes a vendor audit more likely each time you travel. If they catch you, the true-up is <b>${fmt(LIC_FINE)}</b> per license, and whatever you can't pay goes straight onto your PMO debt.</p>
+      <p>If you're still unlicensed at the PROD gate, it needs one extra Oracle License for each renewal you skipped.</p>
+      <p class="dim">Unpaid licenses: ${n} of ${LIC_MAX}.</p>`,
+    buttons:[{label:'Lose the invoice',primary:1,fn(){
+      closeModal();S.unlic=n+1;S.cash+=LIC_CASH;
+      log(`You let the license for ${RENEWALS[n]} lapse and keep the ${fmt(LIC_CASH)}. The software keeps working. It shows a small red banner now. Unpaid licenses: ${S.unlic}.`,'alert');
+      render();save();}},
+      {label:'Pay it like an adult',fn(){closeModal();}}]});
+}
+function licenseEvent(next){
+  const n=S.unlic||0; if(!n) return next();
+  const bill=n*LIC_FINE,paid=Math.min(S.cash,bill),gap=bill-paid;
+  showModal({title:'VENDOR LICENSE AUDIT',alert:1,
+    body:`<p>A letter arrives from the vendor's "License Management Services" team. They ran a script. The script found ${n} unpaid license${n>1?'s':''}.</p>
+      <p>The true-up is list price, back-support and a "relationship adjustment": <b>${fmt(bill)}</b>.</p>
+      <p>${gap?`You can cover ${fmt(paid)}. Procurement puts the other <b>${fmt(gap)}</b> on your PMO debt, and Brenda has already been told.`:'It comes out of your budget today.'} Sanity -8.</p>`,
+    buttons:[{label:'Sign the true-up',primary:1,fn(){
+      closeModal();S.cash-=paid;S.debt+=gap;S.unlic=0;
+      log(`Vendor license audit: ${fmt(bill)} true-up for ${n} unpaid license${n>1?'s':''}.${gap?` ${fmt(gap)} of it went onto your PMO debt.`:''} Sanity -8.`,'alert');
+      if(S.debt>=2*credit()){endGame('defunded');return;}
+      damage(8);next();}}]});
 }
 function charAct(){
   const a=P().act;if(!a||S.over) return;
@@ -659,6 +688,7 @@ function travel(i){
   if(S.day>2&&!S.cyber&&Math.random()<.07){S.cyber=true;q.push(cyberEvent);}
   if(!S.rolledBack&&Math.random()<.05&&rollbackTarget()) q.push(rollbackEvent);
   if(Math.random()<.06+(P().audit||0)+(S.heat||0)+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
+  if(S.unlic&&Math.random()<.06*S.unlic) q.push(licenseEvent);
   const o=Math.random();
   if(o<.07&&!S.raci) q.push(raciOffer); else if(o<.14) q.push(quotaOffer);
   runQueue(q);
@@ -1063,6 +1093,7 @@ function helpModal(){
     <p>Watch out for the surprise all-hands call. There's only one per game, and it's mandatory. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
     <p>Brenda lends freely up to ${fmt(credit())} of total debt. A $5k loan that would take you over that goes to the CIO for sign-off instead. Take it to the Executive Floor on a Friday (Days 5, 10, 15, 20, 25, 30) and he signs it. He signs one request per week, and you can only have one waiting at a time.</p>
     <p>You have a team. Every Friday you arrive somewhere, payroll takes ${fmt(PAYROLL)} per person. If you're short, Brenda covers the gap while you have credit left. If she won't, HR lets someone go for you. You can also fire someone yourself at the Cubicle Farm for ${fmt(SEVERANCE)}, at a cost in sanity and 15k of token quota.</p>
+    <p>Short on cash? At the Cubicle Farm you can skip a software license renewal and keep ${fmt(LIC_CASH)}, up to ${LIC_MAX} times. Each unpaid license adds a 6% chance of a vendor audit every time you travel. Getting caught costs ${fmt(LIC_FINE)} per license, with any shortfall added to your PMO debt. Unpaid licenses also add one Oracle License each to the PROD gate.</p>
     <p class="alert">Three things end a run on the spot: Sanity at zero, a team of zero, or PMO debt reaching ${fmt(2*credit())} (twice Brenda's limit), at which point Finance defunds you.</p>
     <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells AI token top-ups. Your AI assistant spends 1k tokens tracking each item you carry, so your token quota caps your stash.</p>
     <p class="dim">Desktop keys: T travel · G submit gate · P PMO · C CIO · Q give up · ? help</p>
@@ -1115,7 +1146,7 @@ function render(){
   const acts=[];
   acts.push({k:'T',label:'Travel',fn:travelModal,primary:1});
   if(S.gate<GATES.length) acts.push({k:'G',label:`Submit ${GATES[S.gate].code}`,fn:submitGate});
-  if(L.id==='cube'){acts.push({k:'P',label:'Brenda (PMO)',fn:pmo});acts.push({k:'L',label:'Latte $150',fn:latte});acts.push({k:'F',label:`Fire staff (${S.staff})`,fn:fireStaff});}
+  if(L.id==='cube'){acts.push({k:'P',label:'Brenda (PMO)',fn:pmo});acts.push({k:'L',label:'Latte $150',fn:latte});acts.push({k:'F',label:`Fire staff (${S.staff})`,fn:fireStaff});acts.push({k:'N',label:`Skip license (${S.unlic||0}/${LIC_MAX})`,fn:skipLicense,off:(S.unlic||0)>=LIC_MAX});}
   const ca=P().act;
   if(ca&&(!ca.loc||ca.loc===L.id)) acts.push({k:ca.k,label:ca.label+(ca.once&&S.actUsed?' (used)':''),fn:charAct,off:ca.once?!!S.actUsed:S.actDay===S.day});
   if(L.id==='dc') acts.push({k:'U',label:'Tokens +30k $1,800',fn:usb});
