@@ -130,6 +130,10 @@ footer{color:var(--dim);font-size:11.5px;text-align:center}
 .travel button{text-align:left;text-transform:none;letter-spacing:0;display:flex;flex-direction:column;align-items:flex-start;padding:8px 12px;gap:2px;font-size:14px}
 .travel button .w{font-size:11.5px;color:var(--dim)}
 .travel button:hover:not(:disabled) .w{color:var(--ink)}
+.travel.career button{gap:4px;padding:10px 12px}
+.travel.career button .w{font-size:12.5px;line-height:1.35}
+.travel.career button .t{color:var(--dim);font-size:12.5px;font-style:italic}
+.travel.career button:hover:not(:disabled) .t{color:var(--ink)}
 .help table{border-collapse:collapse;width:100%;font-size:12.5px}
 .help td,.help th{border-bottom:1px solid var(--faint);padding:5px 6px 5px 0;text-align:left;vertical-align:top}
 .help th{color:var(--dim);font-weight:400;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
@@ -192,6 +196,45 @@ footer{color:var(--dim);font-size:11.5px;text-align:center}
 <script>
 (function(){
 const MAXDAY=30, INTEREST=0.05, CREDIT=10000, CAP_MAX=250;
+/* Playable characters, one per function. Original characters, loosely in the spirit of Office Space, The Office and Silicon Valley.
+   Every field besides the text is optional and falls back to the baseline in P(). */
+const PERSONAS=[
+  {id:'product',fn:'Product',name:'Mitch Scanlon',role:'Senior Product Owner',
+   tag:"Bought his own \"World's Best Product Owner\" mug. Believes the team is a family. The team has not been consulted.",
+   plus:['Roadmap theatre: every gate pays 25% more funding.','Starts with 25 Jira Tickets from a backlog nobody has groomed.'],
+   minus:['Spent the discovery budget on a team-building cruise: starts $8,000 in debt to Brenda.'],
+   hello:"You promised the steering committee a date during an improvised speech. You did not check with anyone first.",
+   debt:8000,inv:{jira:25},reward:1.25},
+  {id:'tech',fn:'Technology',name:'Anton Gilroy',role:'Staff Engineer',
+   tag:'Deadpan. Runs a server rack in his garage. Once rounded a few fractions of a cent into the wrong account, and Audit never forgot.',
+   plus:['Starts with a 150k AI token quota.','Knows a guy: SEC needs 4 FW Exceptions instead of 6, and CAB needs 1 Prod Access instead of 2.'],
+   minus:['Kevin from Internal Audit keeps a file on you. Audits come about twice as often.'],
+   hello:"You could build this app in a weekend. You have been told that is not how we do things here.",
+   cap:150,audit:.07,need:(k,v)=>k==='fw'?v-2:k==='prod'?v-1:v},
+  {id:'design',fn:'Design',name:'Paige Holloway',role:'Lead UX Designer',
+   tag:'Started at the front desk. Went to art school at night. Still the only person who can fix the printer.',
+   plus:['Pixel-perfect artifacts: gates need half the Visio Diagrams and half the Test Evidence.','Years of practice looking interested: lattes restore 25 sanity, and your focus drifts slower in the walkthrough.'],
+   minus:['Design is "not a funded priority": starts with $3,000 and an 80k AI token quota.'],
+   hello:"Your mockups were approved in March. Engineering has been building something else since April.",
+   cash:3000,cap:80,latte:25,drift:.75,need:(k,v)=>k==='visio'||k==='test'?Math.ceil(v/2):v},
+  {id:'delivery',fn:'Delivery',name:'Duane Kessler',role:'Delivery Lead',
+   tag:'Assistant to the Program Director. Introduces himself as Assistant Program Director. Owns a beet farm and a laminator.',
+   plus:['Laminated his own RACI years ago: starts with it armed against Internal Audit.','Runs the pre-CAB: the Change Advisory Board will hear you on any day, not only Tuesdays.'],
+   minus:['Owes the steering committee a 40-slide status report every Friday: sanity -6 each time.'],
+   hello:"Your Gantt chart has 1,400 rows. Every one of them is on the critical path. You like it that way.",
+   raci:true,anyCab:true,friday:6},
+  {id:'exec',fn:'Executive',name:'Phil Lundgren',role:'VP, Strategic Initiatives',
+   tag:'Suspenders, a coffee mug, and a "yeahhh" that always ends with somebody else\'s Saturday.',
+   plus:['Signs his own paperwork: every gate needs one fewer Exec Signature.','Brenda respects the title: she lends up to $20,000 before the CIO has to sign.'],
+   minus:["Your assistant's assistant handles the AI: 60k token quota.",'You have never stayed awake in a walkthrough: your focus drifts faster.'],
+   hello:"You told the board this would be live by Day 30. Then you found out you have to do it yourself.",
+   cap:60,credit:20000,drift:1.2,need:(k,v)=>k==='exec'?v-1:v},
+];
+const NOBODY={id:'',fn:'',name:'',role:'Individual Contributor',plus:[],minus:[]};
+const P=()=>PERSONAS.find(p=>p.id===S.persona)||NOBODY;
+const credit=()=>P().credit||CREDIT;
+const needOf=g=>{const f=P().need;return Object.entries(g.need).map(([k,v])=>[k,f?f(k,v):v]).filter(([,v])=>v>0);};
+const rewardOf=g=>Math.round(g.reward*(P().reward||1));
 const ITEMS=[
   {id:'jira',  name:'Jira Tickets',    lo:8,    hi:45},
   {id:'visio', name:'Visio Diagrams',  lo:40,   hi:180},
@@ -220,15 +263,15 @@ const LOCS=[
 ];
 const GATES=[
   {code:'REQ', name:'Requirements Sign-off',   loc:'ba',  need:{jira:25,exec:1}, reward:2000,
-   pass:"The BAs sign off on 412 pages of requirements. Nobody will ever read them. Phase 1 funding released: +$2,000."},
+   pass:"The BAs sign off on 412 pages of requirements. Nobody will ever read them. Phase 1 funding released."},
   {code:'ARB', name:'Architecture Review Board',loc:'exec',need:{visio:8,exec:1}, reward:3000,
-   pass:"The ARB approves your design on the condition you never contact them again. +$3,000."},
+   pass:"The ARB approves your design on the condition you never contact them again."},
   {code:'SEC', name:'Security Review',          loc:'sec', need:{fw:6,test:12},  reward:4000,
-   pass:"InfoSec grants a provisional pass, valid until they remember you exist. +$4,000."},
+   pass:"InfoSec grants a provisional pass, valid until they remember you exist."},
   {code:'UAT', name:'User Acceptance Testing',  loc:'qa',  need:{test:30,macro:4},reward:5000,
-   pass:"Three business users clicked around for 20 minutes and said 'looks fine I guess'. UAT passed. +$5,000."},
+   pass:"Three business users clicked around for 20 minutes and said 'looks fine I guess'. UAT passed."},
   {code:'CAB', name:'Change Advisory Board',    loc:'cab', need:{prod:2,exec:2}, reward:6000, cabOnly:1,
-   pass:"CAB approves your change for the Saturday 2 a.m. window. Your weekend is cancelled. +$6,000."},
+   pass:"CAB approves your change for the Saturday 2 a.m. window. Your weekend is cancelled."},
   {code:'PROD',name:'Production Deploy',        loc:'dc',  need:{oracle:2,jira:20},reward:0,
    pass:"You open 20 change tickets in 20 systems, feed the Oracle beast, and push the button. IT'S LIVE."},
 ];
@@ -275,14 +318,16 @@ function fetchStore(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v
 
 function log(t,c){S.log.push({t,c:c||''});if(S.log.length>80)S.log.splice(0,S.log.length-80);newLines++;}
 
-function newGame(){
-  S={day:1,loc:0,cash:5000,debt:5000,cioReq:0,sanity:100,cap:100,raci:false,gate:0,
-     inv:Object.fromEntries(ITEMS.map(i=>[i.id,0])),prices:{},hotItem:null,log:[],over:false,result:null};
+function newGame(pid){
+  const p=PERSONAS.find(x=>x.id===pid)||NOBODY;
+  S={persona:p.id,day:1,loc:0,cash:p.cash||5000,debt:p.debt||5000,cioReq:0,sanity:100,cap:p.cap||100,raci:!!p.raci,gate:0,
+     inv:Object.fromEntries(ITEMS.map(i=>[i.id,(p.inv||{})[i.id]||0])),prices:{},hotItem:null,log:[],over:false,result:null};
   genPrices();
   log('== DAY 1 · CUBICLE FARM ==','hdr');
   log("Welcome to Consolidated Mutual. Your mission: get one (1) app into production by Day 30, when the regulator's deadline hits.");
   log("Six gates, in order. This is waterfall. There is no other way. There has never been another way.");
-  log("You have "+fmt(5000)+" of cost-center budget and owe Brenda from the PMO "+fmt(5000)+" at 5% a day. Brenda remembers everything.");
+  if(p.id) log(`You are ${p.name}, ${p.role}. ${p.hello}`);
+  log("You have "+fmt(S.cash)+" of cost-center budget and owe Brenda from the PMO "+fmt(S.debt)+" at 5% a day. Brenda remembers everything.");
   log("Buy low, sell high, hoard what each gate needs. Tap ? for the playbook.",'dim');
 }
 
@@ -546,6 +591,7 @@ function travel(i){
   log(pick(LOCS[i].flavor),'dim');
   if(isCab(S.day)) log("It's Tuesday. CAB is in session in Conference Room 7B.",'dim');
   if(isFri(S.day)) log(`It's Friday. The CIO is on the Executive Floor signing things between golf and lunch.${S.cioReq?` Your ${fmt(S.cioReq)} funding request is in his inbox.`:''}`,S.cioReq?'alert':'dim');
+  if(isFri(S.day)&&P().friday){log(`Your weekly status report is due. Forty slides, all green, none true. Sanity -${P().friday}.`,'alert');damage(P().friday);if(S.over)return;}
   const q=[];
   if(Math.random()<.28) q.push(marketEvent);
   if(Math.random()<.36) q.push(miscEvent);
@@ -554,7 +600,7 @@ function travel(i){
   if(S.day>1&&!S.trained&&Math.random()<.1){S.trained=true;q.push(trainingEvent);}
   if(S.day>2&&!S.cyber&&Math.random()<.07){S.cyber=true;q.push(cyberEvent);}
   if(!S.rolledBack&&Math.random()<.05&&rollbackTarget()) q.push(rollbackEvent);
-  if(Math.random()<.06+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
+  if(Math.random()<.06+(P().audit||0)+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
   const o=Math.random();
   if(o<.07&&!S.raci) q.push(raciOffer); else if(o<.14) q.push(quotaOffer);
   runQueue(q);
@@ -581,12 +627,12 @@ function submitGate(){
     else log(`The ${g.name} doesn't happen here. Head to ${LOCS[locIdx(g.loc)].name}.`,'alert');
     return render();
   }
-  if(g.cabOnly&&!isCab(S.day)){const nc=nextCab();
+  if(g.cabOnly&&!P().anyCab&&!isCab(S.day)){const nc=nextCab();
     log(`CAB only convenes on Tuesdays (Days 2, 7, 12, 17, 22, 27). ${nc?`Next session: Day ${nc}.`:"There are no more sessions before the deadline. Oof."}`,'alert');return render();}
-  const short=Object.entries(g.need).filter(([k,v])=>S.inv[k]<v);
+  const need=needOf(g),short=need.filter(([k,v])=>S.inv[k]<v);
   if(short.length){log(`Rejected. You're short ${short.map(([k,v])=>`${v-S.inv[k]} ${item(k).name}`).join(' and ')}. The board says "please revisit" and leaves early for drinks.`,'alert');return render();}
-  Object.entries(g.need).forEach(([k,v])=>S.inv[k]-=v);
-  S.gate++;S.cash+=g.reward;log(g.pass,'win');
+  need.forEach(([k,v])=>S.inv[k]-=v);
+  const pay=rewardOf(g);S.gate++;S.cash+=pay;log(g.pass+(pay?` +${fmt(pay)}.`:''),'win');
   if(S.gate===GATES.length){endGame('win');return;}
   render();save();
   if(g.code==='REQ') meetingIntro();
@@ -775,7 +821,7 @@ function runMeeting(){
       if(t>=0){
         if(msgEl.textContent.startsWith('Connecting'))msg('"Okay, let\'s get started. Page one, Purpose."');
         const p=Math.min(1,t/LEN);
-        const drift=.55+.6*p+(Math.sin(t*1.7)+Math.sin(t*.63))*.2;
+        const drift=(.55+.6*p+(Math.sin(t*1.7)+Math.sin(t*.63))*.2)*(P().drift||1);
         v+=(drift-(hold?2.3:0))*dt;v*=Math.exp(-1.1*dt);v=Math.max(-1.6,Math.min(1.6,v));
         x+=v*dt*.9;dist+=dt;
         if(!prompt&&stops.length&&t>=stops[0]){stops.shift();prompt={until:t+2.6};plusBtn.disabled=false;}
@@ -821,20 +867,20 @@ function meetingResult(kind,plus,slide){
 
 function pmo(){
   const draw=(msg)=>{
-    const room=Math.max(0,CREDIT-S.debt),nf=nextFri();
+    const room=Math.max(0,credit()-S.debt),nf=nextFri();
     const friTxt=nf?(nf===S.day?'That\'s today, so hurry.':`Next Friday is Day ${nf}.`):'Too bad there are no Fridays left.';
     if(!msg&&S.cioReq) msg=`"Your ${fmt(S.cioReq)} is sitting in the CIO's inbox, hon. He signs on Fridays, up on the Executive Floor. ${friTxt}"`;
     showModal({title:'BRENDA FROM THE PMO',
       body:`<p>Brenda looks up from a Gantt chart the size of a bedsheet. "Need funding, hon? I charge 5%. Per day. Compounding. Like a friend would."</p>
             ${msg?`<p>${esc(msg)}</p>`:''}
-            <p class="dim">You owe ${fmt(S.debt)} · Budget ${fmt(S.cash)} · Credit limit ${fmt(CREDIT)} · Left ${fmt(room)}${S.cioReq?` · ${fmt(S.cioReq)} awaiting CIO`:''}</p>`,
+            <p class="dim">You owe ${fmt(S.debt)} · Budget ${fmt(S.cash)} · Credit limit ${fmt(credit())} · Left ${fmt(room)}${S.cioReq?` · ${fmt(S.cioReq)} awaiting CIO`:''}</p>`,
       buttons:[
         {label:'Borrow $1k',disabled:room<1000,fn(){S.debt+=1000;S.cash+=1000;log("Borrowed $1,000 from Brenda.");draw("She writes it in a notebook. In pen.");}},
         {label:S.cioReq?'$5k pending CIO':'Borrow $5k',disabled:!!S.cioReq,fn(){
           if(room>=5000){S.debt+=5000;S.cash+=5000;log("Borrowed $5,000 from Brenda.");return draw("\"Big plans, huh?\" She smiles. Her eyes don't.");}
           S.cioReq=5000;
-          log(`Brenda sent your $5,000 request up to the CIO. It puts you over the ${fmt(CREDIT)} limit, so he has to sign it. He only signs on Fridays, on the Executive Floor. ${friTxt}`,'alert');
-          draw(`"Ooh, that takes you over ${fmt(CREDIT)}. I'll need the CIO's John Hancock on this one." She stamps it PENDING with real joy. "He signs on Fridays, up on the Executive Floor. ${friTxt}"`);}},
+          log(`Brenda sent your $5,000 request up to the CIO. It puts you over the ${fmt(credit())} limit, so he has to sign it. He only signs on Fridays, on the Executive Floor. ${friTxt}`,'alert');
+          draw(`"Ooh, that takes you over ${fmt(credit())}. I'll need the CIO's John Hancock on this one." She stamps it PENDING with real joy. "He signs on Fridays, up on the Executive Floor. ${friTxt}"`);}},
         {label:'Repay $1k',disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(1000,S.debt,S.cash);S.debt-=a;S.cash-=a;S.repaid=(S.repaid||0)+a;log(`Repaid ${fmt(a)} to the PMO.`);draw("She crosses out a line. Barely.");}},
         {label:'Repay all',primary:1,disabled:S.debt<=0||S.cash<1,fn(){const a=Math.min(S.debt,S.cash);S.debt-=a;S.cash-=a;S.repaid=(S.repaid||0)+a;log(`Repaid ${fmt(a)} to the PMO.${S.debt===0?' You are free. For now.':''}`);draw(S.debt===0?"\"Pleasure doing business.\" She updates your status to green.":"Partial payment. She's not mad. She's disappointed.");}},
         {label:'Leave',fn(){closeModal();render();save();}}
@@ -853,8 +899,8 @@ function cio(){
 }
 function latte(){
   if(S.cash<150){log("You can't afford the fancy latte. You drink the break-room coffee. It tastes like a budget cut.",'alert');return render();}
-  S.cash-=150;S.sanity=Math.min(100,S.sanity+15);
-  log("You expense a $150 oat-milk lavender latte as a 'client meeting'. Sanity +15.");render();save();
+  const up=P().latte||15;S.cash-=150;S.sanity=Math.min(100,S.sanity+up);
+  log(`You expense a $150 oat-milk lavender latte as a 'client meeting'. Sanity +${up}.`);render();save();
 }
 function usb(){
   const price=1800;
@@ -883,7 +929,7 @@ function endGame(kind){
   S.final={title,txt,net};
   log(kind==='win'?'*** DEPLOYED TO PRODUCTION ***':'*** GAME OVER ***',kind==='win'?'win':'alert');
   const scores=fetchStore('applord-scores')||[];
-  scores.push({win:kind==='win',net,gate:S.gate,day:S.day,title,date:new Date().toISOString().slice(0,10)});
+  scores.push({win:kind==='win',net,gate:S.gate,day:S.day,role:P().name?`${P().name} (${P().fn})`:'',title,date:new Date().toISOString().slice(0,10)});
   scores.sort((a,b)=>(b.win-a.win)||(b.gate-a.gate)||(b.net-a.net));
   store('applord-scores',scores.slice(0,5));
   closeModal();render();save();showEnd();
@@ -891,13 +937,13 @@ function endGame(kind){
 function scoresHtml(){
   const sc=fetchStore('applord-scores')||[];
   if(!sc.length) return '<p class="dim">No runs on this device yet. Be the first to ship something.</p>';
-  return '<div class="scores">'+sc.map((s,i)=>`<div><span>${i+1}. ${s.win?'SHIPPED':'Gate '+s.gate+'/6'} · ${esc(s.date)}</span><span>${fmt(s.net)}</span></div>`).join('')+'</div>';
+  return '<div class="scores">'+sc.map((s,i)=>`<div><span>${i+1}. ${s.win?'SHIPPED':'Gate '+s.gate+'/6'}${s.role?' · '+esc(s.role):''} · ${esc(s.date)}</span><span>${fmt(s.net)}</span></div>`).join('')+'</div>';
 }
 function showEnd(){
   const f=S.final;
   showModal({title:f.title,alert:S.result!=='win',
     body:`<p>${esc(f.txt)}</p><p class="big">${fmt(f.net)}</p><p class="dim">Net worth: budget ${fmt(S.cash)} minus PMO debt ${fmt(S.debt)}.</p><p class="label">Hall of fame (this device)</p>${scoresHtml()}`,
-    buttons:[{label:'New career',primary:1,fn(){closeModal();newGame();render();save();}},{label:'Look at the wreckage',fn(){closeModal();}}]});
+    buttons:[{label:'New career',primary:1,fn(){chooseCareer();}},{label:'Look at the wreckage',fn(){closeModal();}}]});
 }
 
 /* ---------- modal ---------- */
@@ -928,28 +974,38 @@ function travelModal(){
   box.querySelector('[data-i]').addEventListener('click',closeModal);
   $('#modal').hidden=false;box.querySelector('[data-loc]:not(:disabled)').focus();
 }
+function chooseCareer(){
+  /* The old run is forfeit the moment the picker opens, so a reload lands back here. */
+  S.picking=true;save();
+  const box=$('#mbox');modalBtns=[];
+  box.innerHTML=`<h3>PICK YOUR CHARACTER</h3><p class="dim">Five colleagues, one app, the same six gates. Each has an edge and a problem.</p><div class="travel career">${PERSONAS.map(p=>
+    `<button type="button" data-p="${p.id}"><span><b>${esc(p.name.toUpperCase())}</b></span><span class="label">${esc(p.fn)} · ${esc(p.role)}</span><span class="t">${esc(p.tag)}</span>${p.plus.map(x=>`<span class="w">+ ${esc(x)}</span>`).join('')}${p.minus.map(x=>`<span class="w">− ${esc(x)}</span>`).join('')}</button>`).join('')}</div>`;
+  box.querySelectorAll('[data-p]').forEach(el=>el.addEventListener('click',()=>{closeModal();newGame(el.dataset.p);render();save();}));
+  $('#modal').hidden=false;box.scrollTop=0;box.querySelector('[data-p]').focus();
+}
 function restartPrompt(){
   showModal({title:'GIVE UP?',
     body:`<p>You'll hand in your badge on Day ${S.day} with ${S.gate} of 6 gates passed. This run is gone for good and won't count toward the hall of fame.</p><p class="dim">Brenda will find you in your next career too.</p>`,
-    buttons:[{label:'Give up',primary:1,fn(){closeModal();newGame();render();save();}},{label:'Keep playing',fn(){closeModal();}}]});
+    buttons:[{label:'Give up',primary:1,fn(){chooseCareer();}},{label:'Keep playing',fn(){closeModal();}}]});
 }
 function helpModal(){
   showModal({title:'THE PLAYBOOK',body:`<div class="help">
     <p>You have 30 business days to get your app into production at Consolidated Mutual. Every trip between silos costs a day. PMO debt grows 5% a day.</p>
     <p>Trade enterprise contraband between departments: buy where it's cheap, sell where it's desperate. Hoard what each gate needs and submit at the right place, in order. Each gate releases phase funding.</p>
     <div class="tablewrap"><table><tr><th>Gate</th><th>Where</th><th>Costs you</th><th>Funding</th></tr>
-    ${GATES.map(g=>`<tr><td>${g.code}</td><td>${esc(LOCS[locIdx(g.loc)].name)}${g.cabOnly?' (Tuesdays: days 2, 7, 12, 17, 22, 27)':''}</td><td>${Object.entries(g.need).map(([k,v])=>v+' '+esc(item(k).name)).join(', ')}</td><td>${g.reward?fmt(g.reward):'Glory'}</td></tr>`).join('')}
+    ${GATES.map(g=>`<tr><td>${g.code}</td><td>${esc(LOCS[locIdx(g.loc)].name)}${g.cabOnly?(P().anyCab?' (any day, for you)':' (Tuesdays: days 2, 7, 12, 17, 22, 27)'):''}</td><td>${needOf(g).map(([k,v])=>v+' '+esc(item(k).name)).join(', ')}</td><td>${g.reward?fmt(rewardOf(g)):'Glory'}</td></tr>`).join('')}
     </table></div>
+    ${P().id?`<p>You are playing <b>${esc(P().name)}</b> (${esc(P().fn)} · ${esc(P().role)}). The table above already reflects it.<br>${P().plus.map(x=>'+ '+esc(x)).join('<br>')}<br>${P().minus.map(x=>'− '+esc(x)).join('<br>')}</p>`:''}
     <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
     <p>Pass REQ and you'll be dragged into a 30-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
     <p>At some point HR will assign you one mandatory training course that has nothing to do with your job. The pass mark is 100%, and the LMS's answer key is not quite right. Every attempt costs sanity.</p>
     <p>Production backups are "nightly". If Ops runs a recovery drill, you can lose the last two days of progress, gates included. It only happens once per game.</p>
     <p>Watch out for the surprise all-hands call. There's only one per game, and it's mandatory. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
-    <p>Brenda lends freely up to $10,000 of total debt. A $5k loan that would take you over that goes to the CIO for sign-off instead. Take it to the Executive Floor on a Friday (Days 5, 10, 15, 20, 25, 30) and he signs it. He signs one request per week, and you can only have one waiting at a time.</p>
+    <p>Brenda lends freely up to ${fmt(credit())} of total debt. A $5k loan that would take you over that goes to the CIO for sign-off instead. Take it to the Executive Floor on a Friday (Days 5, 10, 15, 20, 25, 30) and he signs it. He signs one request per week, and you can only have one waiting at a time.</p>
     <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells AI token top-ups. Your AI assistant spends 1k tokens tracking each item you carry, so your token quota caps your stash.</p>
     <p class="dim">Desktop keys: T travel · G submit gate · P PMO · C CIO · Q give up · ? help</p>
     <p class="label">Hall of fame (this device)</p>${scoresHtml()}</div>`,
-    buttons:[{label:'Got it',primary:1,fn(){closeModal();}},{label:'Start over',fn(){closeModal();newGame();render();save();}}]});
+    buttons:[{label:'Got it',primary:1,fn(){closeModal();}},{label:'Start over',fn(){chooseCareer();}}]});
 }
 
 /* ---------- render ---------- */
@@ -959,9 +1015,9 @@ function render(){
   $('#status').innerHTML=`
     <div class="stat"><span class="label">Day</span><span class="v ${S.day>=26?'bad':''}">${S.day}/${MAXDAY}</span></div>
     <div class="stat"><span class="label">Budget</span><span class="v">${fmt(S.cash)}</span></div>
-    <div class="stat"><span class="label">PMO debt${S.cioReq?' · '+fmt(S.cioReq)+' at CIO':''}</span><span class="v ${S.debt>10000?'bad':''}">${fmt(S.debt)}</span></div>
+    <div class="stat"><span class="label">PMO debt${S.cioReq?' · '+fmt(S.cioReq)+' at CIO':''}</span><span class="v ${S.debt>credit()?'bad':''}">${fmt(S.debt)}</span></div>
     <div class="stat"><span class="label">AI tokens</span><span class="v">${used()}k/${S.cap}k</span></div>
-    <div class="stat wide"><span class="label">Location</span><span class="v">${esc(L.name)}</span></div>
+    <div class="stat wide"><span class="label">${P().id?esc(P().name)+' · ':''}Location</span><span class="v">${esc(L.name)}</span></div>
     <div class="stat"><span class="label">Sanity ${S.sanity}</span><span class="bar" aria-label="Sanity ${S.sanity} of 100">${'█'.repeat(bar)}<span class="off">${'░'.repeat(10-bar)}</span></span></div>
     <div class="stat"><span class="label">RACI</span><span class="v">${S.raci?'ARMED':'NONE'}</span></div>`;
 
@@ -970,10 +1026,11 @@ function render(){
   if(S.gate<GATES.length){
     const g=GATES[S.gate],gl=LOCS[locIdx(g.loc)],here=gl.id===L.id;
     let note=here?'You are here. Submit when your stash is ready.':`Submit at ${gl.name}.`;
-    if(g.cabOnly){const nc=nextCab();note+=isCab(S.day)?' CAB is in session today.':nc?` Next CAB: Day ${nc}.`:' No CAB sessions left. Yikes.';}
-    $('#gate').innerHTML=`<span class="label">Next gate · ${S.gate+1} of 6${g.reward?' · pays '+fmt(g.reward):''}</span>
+    if(g.cabOnly&&P().anyCab)note+=' You run the pre-CAB, so they will hear you any day.';
+    else if(g.cabOnly){const nc=nextCab();note+=isCab(S.day)?' CAB is in session today.':nc?` Next CAB: Day ${nc}.`:' No CAB sessions left. Yikes.';}
+    $('#gate').innerHTML=`<span class="label">Next gate · ${S.gate+1} of 6${g.reward?' · pays '+fmt(rewardOf(g)):''}</span>
       <span class="title">${g.code} · ${esc(g.name)}</span>
-      <div class="needs">${Object.entries(g.need).map(([k,v])=>`<span class="need ${S.inv[k]>=v?'ok':'short'}">${esc(item(k).name)} ${Math.min(S.inv[k],v)}/${v}</span>`).join('')}</div>
+      <div class="needs">${needOf(g).map(([k,v])=>`<span class="need ${S.inv[k]>=v?'ok':'short'}">${esc(item(k).name)} ${Math.min(S.inv[k],v)}/${v}</span>`).join('')}</div>
       <span class="note">${esc(note)}</span>`;
   } else {
     $('#gate').innerHTML=`<span class="label">All gates passed</span><span class="title">Your app is in production. It's your problem forever now.</span>`;
@@ -1007,7 +1064,7 @@ function render(){
   a.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>acts[+b.dataset.a].fn());
   $('#b-help').onclick=helpModal;
   if(!S.over) $('#b-restart').onclick=restartPrompt;
-  if(S.over) $('#b-new').onclick=()=>{newGame();render();save();};
+  if(S.over) $('#b-new').onclick=chooseCareer;
   actMap=Object.fromEntries(acts.map(x=>[x.k.toLowerCase(),x.fn]));
   actMap.q=restartPrompt;
 }
@@ -1017,7 +1074,7 @@ function save(){store('applord-save',S);}
 
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey) return;
-  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUESTION|ALL-HANDS|BINGO|BACKUP|TRAINING|CERTIFICATE|CORRECT|URGENT|DATA CALL/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
+  if(!$('#modal').hidden){if(e.key==='Escape'&&!S.over&&!/CHARACTER|AUDIT|CONSULTANT|IT HAS|WALKTHROUGH|SURVIVED|ASLEEP|QUESTION|ALL-HANDS|BINGO|BACKUP|TRAINING|CERTIFICATE|CORRECT|URGENT|DATA CALL/.test($('#mbox h3')?.textContent||'')) closeModal();return;}
   if(e.target.tagName==='INPUT') return;
   if(e.key==='?'){helpModal();return;}
   if(S.over) return;
@@ -1026,9 +1083,11 @@ document.addEventListener('keydown',e=>{
 
 function start(data){
   S=(data&&data.S)||fetchStore('applord-save');
-  if(!S||!S.inv||!S.prices) newGame();
+  const fresh=!S||!S.inv||!S.prices;
+  if(fresh) newGame();
   if(S.cioReq==null) S.cioReq=0;
   render();
+  if(fresh||S.picking) chooseCareer();
   if(S.over&&S.final) {/* show board at rest; end modal available via New career */}
 }
 try{window.claude?.hot?.snapshot?.(()=>({S}));}catch(e){}
