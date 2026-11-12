@@ -12,6 +12,10 @@ Each run starts by picking one of five characters, original creations loosely in
 - **Duane Kessler** (Delivery) starts with a RACI and can take CAB on any day, but loses sanity to a status report every Friday.
 - **Phil Lundgren** (Executive) signs his own paperwork and has a $20,000 credit limit, but gets a 60k quota and nods off faster in the walkthrough.
 
+Each character also has a team and one special move: Mitch's improv pitch, Anton's crypto mining, Paige's hand-drawn diagrams, Duane's one-time re-baseline, and Phil's weekend work. Payroll is due every Friday. Brenda covers a shortfall while you have credit; after that HR starts letting people go, and you can fire someone yourself for quick cash.
+
+A run ends on the spot if your sanity hits zero, your team hits zero, or your PMO debt reaches twice Brenda's credit limit.
+
 ## Play
 
 Open `index.html` in any browser. It's a single self-contained file. Progress and the hall of fame are saved to your browser's local storage.

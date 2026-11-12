@@ -204,32 +204,55 @@ const PERSONAS=[
    plus:['Roadmap theatre: every gate pays 25% more funding.','Starts with 25 Jira Tickets from a backlog nobody has groomed.'],
    minus:['Spent the discovery budget on a team-building cruise: starts $8,000 in debt to Brenda.'],
    hello:"You promised the steering committee a date during an improvised speech. You did not check with anyone first.",
-   debt:8000,inv:{jira:25},reward:1.25},
+   move:'Team of 4. Improv pitch on the Executive Floor: a coin flip between $1,500 and a talk with HR. Firing anyone hurts you twice as much.',
+   debt:8000,inv:{jira:25},reward:1.25,staff:4,fireDmg:20,
+   act:{k:'I',label:'Improv pitch',loc:'exec',fn(){
+     if(Math.random()<.5){S.cash+=1500;log("You open the pitch with an impression nobody asked for. Somehow an SVP laughs and finds $1,500 of discretionary budget.",'win');}
+     else{log("You open the pitch with an impression nobody asked for. Nobody laughs. HR schedules a 'conversation'. Sanity -10.",'alert');damage(10);}}}},
   {id:'tech',fn:'Technology',name:'Anton Gilroy',role:'Staff Engineer',
    tag:'Deadpan. Runs a server rack in his garage. Once rounded a few fractions of a cent into the wrong account, and Audit never forgot.',
    plus:['Starts with a 150k AI token quota.','Knows a guy: SEC needs 4 FW Exceptions instead of 6, and CAB needs 1 Prod Access instead of 2.'],
    minus:['Kevin from Internal Audit keeps a file on you. Audits come about twice as often.'],
    hello:"You could build this app in a weekend. You have been told that is not how we do things here.",
-   cap:150,audit:.07,need:(k,v)=>k==='fw'?v-2:k==='prod'?v-1:v},
+   move:'Team of 2. Mine crypto at the Data Center: +$1,200 a visit, and Internal Audit gets a little warmer every time.',
+   cap:150,audit:.07,need:(k,v)=>k==='fw'?v-2:k==='prod'?v-1:v,staff:2,
+   act:{k:'M',label:'Mine crypto',loc:'dc',fn(){
+     S.cash+=1200;S.heat=(S.heat||0)+.04;log("You point the idle test servers at a coin nobody has heard of. +$1,200. The power bill will land in someone's audit sample.");}}},
   {id:'design',fn:'Design',name:'Paige Holloway',role:'Lead UX Designer',
    tag:'Started at the front desk. Went to art school at night. Still the only person who can fix the printer.',
    plus:['Pixel-perfect artifacts: gates need half the Visio Diagrams and half the Test Evidence.','Years of practice looking interested: lattes restore 25 sanity, and your focus drifts slower in the walkthrough.'],
    minus:['Design is "not a funded priority": starts with $3,000 and an 80k AI token quota.'],
    hello:"Your mockups were approved in March. Engineering has been building something else since April.",
-   cash:3000,cap:80,latte:25,drift:.75,need:(k,v)=>k==='visio'||k==='test'?Math.ceil(v/2):v},
+   move:'Team of 1 (the intern). Draw diagrams at the Cubicle Farm: up to 3 free Visio Diagrams a visit, sanity -4.',
+   cash:3000,cap:80,latte:25,drift:.75,need:(k,v)=>k==='visio'||k==='test'?Math.ceil(v/2):v,staff:1,
+   act:{k:'D',label:'Draw diagrams',loc:'cube',fn(){
+     const q=Math.min(3,S.cap-used());
+     if(q<=0){log("You'd draw some diagrams, but your AI assistant has no tokens left to remember them.",'alert');return false;}
+     S.inv.visio+=q;log(`You draw ${q} Visio Diagram${q>1?'s':''} yourself. Somebody asks you to "make the boxes pop". Sanity -4.`);damage(4);}}},
   {id:'delivery',fn:'Delivery',name:'Duane Kessler',role:'Delivery Lead',
    tag:'Assistant to the Program Director. Introduces himself as Assistant Program Director. Owns a beet farm and a laminator.',
    plus:['Laminated his own RACI years ago: starts with it armed against Internal Audit.','Runs the pre-CAB: the Change Advisory Board will hear you on any day, not only Tuesdays.'],
    minus:['Owes the steering committee a 40-slide status report every Friday: sanity -6 each time.'],
    hello:"Your Gantt chart has 1,400 rows. Every one of them is on the critical path. You like it that way.",
-   raci:true,anyCab:true,friday:6},
+   move:'Team of 3. Re-baseline the plan, once per game, anywhere: the calendar goes back 2 days.',
+   raci:true,anyCab:true,friday:6,staff:3,
+   act:{k:'B',label:'Re-baseline plan',once:1,fn(){
+     if(S.day<3){log("There is nothing to re-baseline yet. Give the plan time to be wrong.",'alert');return false;}
+     S.day-=2;S.hist=[];log(`You re-baseline the plan. All 1,400 rows move right, and the status goes back to green. It is now officially Day ${S.day}. Brenda's interest did not move.`,'win');}}},
   {id:'exec',fn:'Executive',name:'Phil Lundgren',role:'VP, Strategic Initiatives',
    tag:'Suspenders, a coffee mug, and a "yeahhh" that always ends with somebody else\'s Saturday.',
    plus:['Signs his own paperwork: every gate needs one fewer Exec Signature.','Brenda respects the title: she lends up to $20,000 before the CIO has to sign.'],
    minus:["Your assistant's assistant handles the AI: 60k token quota.",'You have never stayed awake in a walkthrough: your focus drifts faster.'],
    hello:"You told the board this would be live by Day 30. Then you found out you have to do it yourself.",
-   cap:60,credit:20000,drift:1.2,need:(k,v)=>k==='exec'?v-1:v},
+   move:'Team of 5. Weekend work, once a day, anywhere: the team produces Jira Tickets and Test Evidence, and sometimes one of them quits.',
+   cap:60,credit:20000,drift:1.2,need:(k,v)=>k==='exec'?v-1:v,staff:5,
+   act:{k:'W',label:'Weekend work',fn(){
+     let room=S.cap-used();const j=Math.min(6,room);room-=j;const t=Math.min(4,room);
+     if(j+t<=0){log("You'd make the team come in on Saturday, but there are no tokens left to track what they'd produce.",'alert');return false;}
+     S.inv.jira+=j;S.inv.test+=t;log(`"Yeahhh, I'm going to need everyone in this weekend." The team produces ${j} Jira Tickets${t?` and ${t} Test Evidence`:''}.`);
+     if(Math.random()<.25) loseStaff("One of them quits by email on Sunday night, effective Sunday night.");}}},
 ];
+const PAYROLL=300, SEVERANCE=1500;
 const NOBODY={id:'',fn:'',name:'',role:'Individual Contributor',plus:[],minus:[]};
 const P=()=>PERSONAS.find(p=>p.id===S.persona)||NOBODY;
 const credit=()=>P().credit||CREDIT;
@@ -320,7 +343,7 @@ function log(t,c){S.log.push({t,c:c||''});if(S.log.length>80)S.log.splice(0,S.lo
 
 function newGame(pid){
   const p=PERSONAS.find(x=>x.id===pid)||NOBODY;
-  S={persona:p.id,day:1,loc:0,cash:p.cash||5000,debt:p.debt||5000,cioReq:0,sanity:100,cap:p.cap||100,raci:!!p.raci,gate:0,
+  S={persona:p.id,day:1,loc:0,cash:p.cash||5000,debt:p.debt||5000,cioReq:0,sanity:100,cap:p.cap||100,raci:!!p.raci,staff:p.staff||3,gate:0,
      inv:Object.fromEntries(ITEMS.map(i=>[i.id,(p.inv||{})[i.id]||0])),prices:{},hotItem:null,log:[],over:false,result:null};
   genPrices();
   log('== DAY 1 · CUBICLE FARM ==','hdr');
@@ -344,9 +367,43 @@ function genPrices(){
 function advanceDay(){
   S.day++;
   if(S.debt>0) S.debt=Math.round(S.debt*(1+INTEREST));
+  if(S.debt>=2*credit()){endGame('defunded');return;}
+  if(S.debt>=1.5*credit()&&!S.warned){S.warned=true;log(`Brenda has cc'd Finance. You owe ${fmt(S.debt)}. If it reaches ${fmt(2*credit())}, your project is defunded on the spot.`,'alert');}
+  if(S.debt<1.5*credit()) S.warned=false;
   if(S.day>MAXDAY){S.day=MAXDAY;endGame('time');}
 }
 
+function loseStaff(msg){
+  S.staff=Math.max(0,S.staff-1);
+  log(`${msg} Team: ${S.staff}.`,'alert');
+  if(S.staff<=0) endGame('noteam');
+}
+function payroll(){
+  if(!S.staff) return;
+  const due=S.staff*PAYROLL;
+  if(S.cash>=due){S.cash-=due;log(`Payroll Friday: ${S.staff} × ${fmt(PAYROLL)} = ${fmt(due)} leaves your cost center.`,'dim');return;}
+  const gap=due-S.cash;
+  if(credit()-S.debt>=gap){S.cash=0;S.debt+=gap;log(`Payroll Friday: you're ${fmt(gap)} short of ${fmt(due)}. Brenda covers it and adds it to your tab. She seems pleased.`,'alert');return;}
+  loseStaff(`Payroll Friday: you can't cover ${fmt(due)}, and Brenda won't lend you another cent. HR lets one of your team go on your behalf.`);
+}
+function fireStaff(){
+  const last=S.staff<=1,hurt=P().fireDmg||10;
+  showModal({title:'LET SOMEONE GO?',alert:1,
+    body:`<p>HR can "release" one of your ${S.staff} team member${S.staff>1?'s':''}. You get <b>${fmt(SEVERANCE)}</b> of freed-up headcount budget and one less salary every Friday.</p>
+      <p>Their AI seat goes with them (token quota -15k), and you have to do it in person. Sanity -${hurt}.</p>
+      ${last?'<p class="alert">This is your last team member. A project with no team gets cancelled immediately.</p>':''}`,
+    buttons:[{label:last?'Fire them anyway':'Fire them',primary:1,fn(){
+      closeModal();S.cash+=SEVERANCE;S.cap=Math.max(used(),S.cap-15);
+      loseStaff(`You let someone go in a 9-minute meeting with HR on mute. +${fmt(SEVERANCE)}, token quota now ${S.cap}k, sanity -${hurt}.`);
+      if(!S.over) damage(hurt);
+      if(!S.over){render();save();}}},
+      {label:'Keep them',fn(){closeModal();}}]});
+}
+function charAct(){
+  const a=P().act;if(!a||S.over) return;
+  if(a.fn()!==false){S.actDay=S.day;if(a.once)S.actUsed=true;}
+  if(!S.over){render();save();}
+}
 function damage(n){S.sanity=Math.max(0,S.sanity-n);if(S.sanity<=0)endGame('burnout');}
 
 /* ---------- events ---------- */
@@ -591,6 +648,7 @@ function travel(i){
   log(pick(LOCS[i].flavor),'dim');
   if(isCab(S.day)) log("It's Tuesday. CAB is in session in Conference Room 7B.",'dim');
   if(isFri(S.day)) log(`It's Friday. The CIO is on the Executive Floor signing things between golf and lunch.${S.cioReq?` Your ${fmt(S.cioReq)} funding request is in his inbox.`:''}`,S.cioReq?'alert':'dim');
+  if(isFri(S.day)){payroll();if(S.over)return;}
   if(isFri(S.day)&&P().friday){log(`Your weekly status report is due. Forty slides, all green, none true. Sanity -${P().friday}.`,'alert');damage(P().friday);if(S.over)return;}
   const q=[];
   if(Math.random()<.28) q.push(marketEvent);
@@ -600,7 +658,7 @@ function travel(i){
   if(S.day>1&&!S.trained&&Math.random()<.1){S.trained=true;q.push(trainingEvent);}
   if(S.day>2&&!S.cyber&&Math.random()<.07){S.cyber=true;q.push(cyberEvent);}
   if(!S.rolledBack&&Math.random()<.05&&rollbackTarget()) q.push(rollbackEvent);
-  if(Math.random()<.06+(P().audit||0)+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
+  if(Math.random()<.06+(P().audit||0)+(S.heat||0)+Math.min(.16,sketchyUnits()*.004)) q.push(auditEvent);
   const o=Math.random();
   if(o<.07&&!S.raci) q.push(raciOffer); else if(o<.14) q.push(quotaOffer);
   runQueue(q);
@@ -925,6 +983,8 @@ function endGame(kind){
   let title,txt;
   if(kind==='win'){title=rank(net);txt=`Your app is LIVE in production on Day ${S.day}. Within an hour, someone files a P1 because the font changed. Congratulations, it's yours forever now.`;}
   else if(kind==='time'){title='Project "Paused Indefinitely"';txt=`Day 30 came and went. You made it through ${S.gate} of 6 gates. You've been realigned to the Metaverse Center of Excellence.`;}
+  else if(kind==='defunded'){title='Project Defunded';txt=`Your PMO debt hit ${fmt(S.debt)}, twice what Brenda is allowed to carry. Finance closed your cost center before lunch. Brenda brought a card. Everyone signed it.`;}
+  else if(kind==='noteam'){title='Project Cancelled: No Team';txt="Your last team member is gone. HR noticed a cost center with zero employees and closed it automatically. You have been reassigned to a project that also has no team.";}
   else {title='Burnout';txt="You walk out mid-standup and start an artisanal hot sauce company in Vermont. Honestly? Good for you.";}
   S.final={title,txt,net};
   log(kind==='win'?'*** DEPLOYED TO PRODUCTION ***':'*** GAME OVER ***',kind==='win'?'win':'alert');
@@ -979,7 +1039,7 @@ function chooseCareer(){
   S.picking=true;save();
   const box=$('#mbox');modalBtns=[];
   box.innerHTML=`<h3>PICK YOUR CHARACTER</h3><p class="dim">Five colleagues, one app, the same six gates. Each has an edge and a problem.</p><div class="travel career">${PERSONAS.map(p=>
-    `<button type="button" data-p="${p.id}"><span><b>${esc(p.name.toUpperCase())}</b></span><span class="label">${esc(p.fn)} · ${esc(p.role)}</span><span class="t">${esc(p.tag)}</span>${p.plus.map(x=>`<span class="w">+ ${esc(x)}</span>`).join('')}${p.minus.map(x=>`<span class="w">− ${esc(x)}</span>`).join('')}</button>`).join('')}</div>`;
+    `<button type="button" data-p="${p.id}"><span><b>${esc(p.name.toUpperCase())}</b></span><span class="label">${esc(p.fn)} · ${esc(p.role)}</span><span class="t">${esc(p.tag)}</span>${p.plus.map(x=>`<span class="w">+ ${esc(x)}</span>`).join('')}${p.minus.map(x=>`<span class="w">− ${esc(x)}</span>`).join('')}<span class="w">★ ${esc(p.move)}</span></button>`).join('')}</div>`;
   box.querySelectorAll('[data-p]').forEach(el=>el.addEventListener('click',()=>{closeModal();newGame(el.dataset.p);render();save();}));
   $('#modal').hidden=false;box.scrollTop=0;box.querySelector('[data-p]').focus();
 }
@@ -995,13 +1055,15 @@ function helpModal(){
     <div class="tablewrap"><table><tr><th>Gate</th><th>Where</th><th>Costs you</th><th>Funding</th></tr>
     ${GATES.map(g=>`<tr><td>${g.code}</td><td>${esc(LOCS[locIdx(g.loc)].name)}${g.cabOnly?(P().anyCab?' (any day, for you)':' (Tuesdays: days 2, 7, 12, 17, 22, 27)'):''}</td><td>${needOf(g).map(([k,v])=>v+' '+esc(item(k).name)).join(', ')}</td><td>${g.reward?fmt(rewardOf(g)):'Glory'}</td></tr>`).join('')}
     </table></div>
-    ${P().id?`<p>You are playing <b>${esc(P().name)}</b> (${esc(P().fn)} · ${esc(P().role)}). The table above already reflects it.<br>${P().plus.map(x=>'+ '+esc(x)).join('<br>')}<br>${P().minus.map(x=>'− '+esc(x)).join('<br>')}</p>`:''}
+    ${P().id?`<p>You are playing <b>${esc(P().name)}</b> (${esc(P().fn)} · ${esc(P().role)}). The table above already reflects it.<br>${P().plus.map(x=>'+ '+esc(x)).join('<br>')}<br>${P().minus.map(x=>'− '+esc(x)).join('<br>')}<br>★ ${esc(P().move)}</p>`:''}
     <p>Items marked <span class="alert">!</span> are sketchy. Carry lots and Internal Audit comes sniffing. A laminated RACI lets you push back. If your Sanity hits zero, you burn out.</p>
     <p>Pass REQ and you'll be dragged into a 30-second requirements walkthrough. Hold to steer your focus left, let go to drift toward a nap. Stay between the edges.</p>
     <p>At some point HR will assign you one mandatory training course that has nothing to do with your job. The pass mark is 100%, and the LMS's answer key is not quite right. Every attempt costs sanity.</p>
     <p>Production backups are "nightly". If Ops runs a recovery drill, you can lose the last two days of progress, gates included. It only happens once per game.</p>
     <p>Watch out for the surprise all-hands call. There's only one per game, and it's mandatory. Play Bullsh*t Bingo: tap a buzzword on your card only after it shows up in the live transcript.</p>
     <p>Brenda lends freely up to ${fmt(credit())} of total debt. A $5k loan that would take you over that goes to the CIO for sign-off instead. Take it to the Executive Floor on a Friday (Days 5, 10, 15, 20, 25, 30) and he signs it. He signs one request per week, and you can only have one waiting at a time.</p>
+    <p>You have a team. Every Friday you arrive somewhere, payroll takes ${fmt(PAYROLL)} per person. If you're short, Brenda covers the gap while you have credit left. If she won't, HR lets someone go for you. You can also fire someone yourself at the Cubicle Farm for ${fmt(SEVERANCE)}, at a cost in sanity and 15k of token quota.</p>
+    <p class="alert">Three things end a run on the spot: Sanity at zero, a team of zero, or PMO debt reaching ${fmt(2*credit())} (twice Brenda's limit), at which point Finance defunds you.</p>
     <p>Cubicle Farm has Brenda (loans) and lattes (sanity). The Data Center sells AI token top-ups. Your AI assistant spends 1k tokens tracking each item you carry, so your token quota caps your stash.</p>
     <p class="dim">Desktop keys: T travel · G submit gate · P PMO · C CIO · Q give up · ? help</p>
     <p class="label">Hall of fame (this device)</p>${scoresHtml()}</div>`,
@@ -1019,7 +1081,7 @@ function render(){
     <div class="stat"><span class="label">AI tokens</span><span class="v">${used()}k/${S.cap}k</span></div>
     <div class="stat wide"><span class="label">${P().id?esc(P().name)+' · ':''}Location</span><span class="v">${esc(L.name)}</span></div>
     <div class="stat"><span class="label">Sanity ${S.sanity}</span><span class="bar" aria-label="Sanity ${S.sanity} of 100">${'█'.repeat(bar)}<span class="off">${'░'.repeat(10-bar)}</span></span></div>
-    <div class="stat"><span class="label">RACI</span><span class="v">${S.raci?'ARMED':'NONE'}</span></div>`;
+    <div class="stat"><span class="label">Team · RACI</span><span class="v">${S.staff} · ${S.raci?'ARMED':'NONE'}</span></div>`;
 
   $('#pipe').innerHTML=GATES.map((g,i)=>`<span class="cell ${i<S.gate?'done':i===S.gate?'now':''}">${g.code}${i===S.gate&&!S.over?'<span class="cursor"></span>':''}</span>`).join('<span class="arrow">▸</span>');
 
@@ -1053,11 +1115,13 @@ function render(){
   const acts=[];
   acts.push({k:'T',label:'Travel',fn:travelModal,primary:1});
   if(S.gate<GATES.length) acts.push({k:'G',label:`Submit ${GATES[S.gate].code}`,fn:submitGate});
-  if(L.id==='cube'){acts.push({k:'P',label:'Brenda (PMO)',fn:pmo});acts.push({k:'L',label:'Latte $150',fn:latte});}
+  if(L.id==='cube'){acts.push({k:'P',label:'Brenda (PMO)',fn:pmo});acts.push({k:'L',label:'Latte $150',fn:latte});acts.push({k:'F',label:`Fire staff (${S.staff})`,fn:fireStaff});}
+  const ca=P().act;
+  if(ca&&(!ca.loc||ca.loc===L.id)) acts.push({k:ca.k,label:ca.label+(ca.once&&S.actUsed?' (used)':''),fn:charAct,off:ca.once?!!S.actUsed:S.actDay===S.day});
   if(L.id==='dc') acts.push({k:'U',label:'Tokens +30k $1,800',fn:usb});
   if(L.id==='exec'&&S.cioReq) acts.push({k:'C',label:`CIO sign-off (${fmt(S.cioReq)})`,fn:cio});
   const a=$('#actions');
-  a.innerHTML=acts.map((x,i)=>`<button type="button" data-a="${i}" class="${x.primary?'primary':''}" ${dis?'disabled':''}><kbd>${x.k}</kbd>${esc(x.label)}</button>`).join('')+
+  a.innerHTML=acts.map((x,i)=>`<button type="button" data-a="${i}" class="${x.primary?'primary':''}" ${dis||x.off?'disabled':''}><kbd>${x.k}</kbd>${esc(x.label)}</button>`).join('')+
     (S.over?`<button type="button" class="primary" id="b-new">New career</button>`:'')+
     `<button type="button" id="b-help" aria-label="Help"><kbd>?</kbd>Playbook</button>`+
     (S.over?'':`<button type="button" id="b-restart"><kbd>Q</kbd>Give up</button>`);
@@ -1065,7 +1129,7 @@ function render(){
   $('#b-help').onclick=helpModal;
   if(!S.over) $('#b-restart').onclick=restartPrompt;
   if(S.over) $('#b-new').onclick=chooseCareer;
-  actMap=Object.fromEntries(acts.map(x=>[x.k.toLowerCase(),x.fn]));
+  actMap=Object.fromEntries(acts.filter(x=>!x.off).map(x=>[x.k.toLowerCase(),x.fn]));
   actMap.q=restartPrompt;
 }
 let actMap={};
@@ -1086,6 +1150,7 @@ function start(data){
   const fresh=!S||!S.inv||!S.prices;
   if(fresh) newGame();
   if(S.cioReq==null) S.cioReq=0;
+  if(S.staff==null) S.staff=3;
   render();
   if(fresh||S.picking) chooseCareer();
   if(S.over&&S.final) {/* show board at rest; end modal available via New career */}
